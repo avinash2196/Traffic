@@ -70,7 +70,7 @@ def validate_officer_token_for_middleware(auth_header: str) -> dict:
     
     # Try to decode as JWT session token using auth_utils
     try:
-        from auth_utils import validate_officer_token
+        from .auth_utils import validate_officer_token
         officer_id = validate_officer_token(token)
         if officer_id:
             return {"officer_id": officer_id, "token_type": "session"}
