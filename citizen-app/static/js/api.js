@@ -196,6 +196,7 @@ async function checkHealth() {
 // Export functions
 window.API = {
   createReport,
+  uploadMedia,
   getReports,
   getReportDetail,
   getReviewQueue,
