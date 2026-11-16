@@ -197,35 +197,48 @@ async def signup(body: dict):
 async def login(body: dict):
     """Citizen login endpoint.
     
-    Request body:
-        - citizen_id: citizen's ID
-        - password: citizen's password
+    Request body (choose one):
+        - email + password: citizen's email and password
+        - citizen_id + password: citizen's ID and password
     
     Returns 200 OK with session token and citizen profile.
     Returns 401 Unauthorized for invalid credentials.
     """
     try:
+        email = body.get("email", "").strip()
         citizen_id = body.get("citizen_id", "").strip()
         password = body.get("password", "")
         
-        if not citizen_id or not password:
+        if not password:
             return JSONResponse(
                 status_code=401,
-                content={"error": "Invalid citizen_id or password"}
+                content={"error": "Invalid credentials"}
             )
         
-        # Lookup citizen
+        # Lookup citizen by email or citizen_id
         db = get_db()
-        cursor = db.execute(
-            "SELECT id, email, full_name, password_hash FROM citizens WHERE id = ? AND is_active = TRUE",
-            (citizen_id,)
-        )
+        if email:
+            cursor = db.execute(
+                "SELECT id, email, full_name, password_hash FROM citizens WHERE email = ? AND is_active = TRUE",
+                (email,)
+            )
+        elif citizen_id:
+            cursor = db.execute(
+                "SELECT id, email, full_name, password_hash FROM citizens WHERE id = ? AND is_active = TRUE",
+                (citizen_id,)
+            )
+        else:
+            return JSONResponse(
+                status_code=401,
+                content={"error": "Invalid credentials"}
+            )
+        
         row = cursor.fetchone()
         
         if not row:
             return JSONResponse(
                 status_code=401,
-                content={"error": "Invalid citizen_id or password"}
+                content={"error": "Invalid credentials"}
             )
         
         # Verify password
@@ -233,10 +246,11 @@ async def login(body: dict):
         if not verify_password(password, password_hash):
             return JSONResponse(
                 status_code=401,
-                content={"error": "Invalid citizen_id or password"}
+                content={"error": "Invalid credentials"}
             )
         
         # Generate token and update last_login_at
+        citizen_id = row[0]
         session_token = generate_session_token(citizen_id)
         now = datetime.now(timezone.utc).isoformat()
         
