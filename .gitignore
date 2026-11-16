@@ -1,0 +1,55 @@
+/.local/
+/.venv/
+__pycache__/
+.pytest_cache/
+test-results/
+playwright-report/
+
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+
+# Media & uploads
+media_store/
+*/media_store/
+citizen/media_store/
+officer/media_store/
+
+# Logs & debug files
+*.log
+logs-*.txt
+ai-gateway-debug.log
+server.log
+
+# IDE & temporary files
+.vscode/
+.idea/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Test & temporary outputs
+pytest_output.txt
+test*.json
+report*.json
+*.bak
+r.json
+
+# Script outputs
+gw_test.json
+check_*.py
+
+# Docker volumes (if any)
+volumes/
+
+# OS files
+.DS_Store
+Thumbs.db

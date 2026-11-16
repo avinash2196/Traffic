@@ -1,0 +1,223 @@
+═══════════════════════════════════════════════════════════════════════════════
+                 AI RECOMMENDATION ENUM: SIMPLE ANSWER
+═══════════════════════════════════════════════════════════════════════════════
+
+QUESTION: How does AI recommendation translate to what app expects (enum)?
+
+ANSWER: It doesn't. No transformation happens.
+
+AI returns:  "recommend-approve"  (string from enum list)
+       ↓
+App stores:  "recommend-approve"  (same string, no change)
+       ↓
+App displays: "recommend-approve" (same string in JSON to officer)
+       ↓
+Officer sees: "✅ Recommend Approve" (UI text, conditionally based on string)
+       ↓
+Officer clicks: [APPROVE] button (officer's decision, NOT from AI)
+       ↓
+App updates: status="approved", points=2 (from officer action, NOT AI)
+
+
+THE ENUM:
+─────────────────────────────────────────────────────────────────────────────
+
+AI can return ONE of these four strings:
+
+  1. "recommend-approve"       → AI says clear violation
+  2. "recommend-reject"        → AI says no violation
+  3. "needs-human-judgment"    → AI is uncertain
+  4. "screen-out-irrelevant"   → Not about reported violation
+
+This enum is defined in: assessment_policy.py
+
+  'recommendation': {
+    'type': 'string',
+    'enum': ['recommend-approve', 'recommend-reject',
+             'needs-human-judgment', 'screen-out-irrelevant']
+  }
+
+
+HOW IT'S USED:
+─────────────────────────────────────────────────────────────────────────────
+
+1. VALIDATION (OpenAI/Gemini output schema check)
+   → Ensures AI returns ONLY these 4 values
+   → If AI returns something else, request fails
+   → File: assessment_policy.py, openai_adapter.py, gemini.py
+
+2. STORAGE (Database)
+   → Saved as-is in ai_jobs.assessment JSON column
+   → File: durable.py
+   → No transformation
+
+3. RETRIEVAL (App fetching from database)
+   → Loaded from JSON as string
+   → Passed directly to officer response
+   → File: app.py, durable.py
+   → Still same string value
+
+4. DISPLAY (Officer UI)
+   → HTML checks string value
+   → Shows corresponding UI text
+   → File: officer_detail.html
+   → Example:
+     if (aiData.recommendation === "recommend-approve")
+       show "✅ Recommend Approve"
+
+5. OFFICER DECISION (Independent of recommendation)
+   → Officer clicks APPROVE/REJECT/REQUEST-INFO
+   → App processes officer's choice
+   → NOT derived from AI recommendation
+   → File: app.py endpoint /api/authority/reports/{id}/decision
+
+
+CODE PROOF: Where recommendation is actually used
+─────────────────────────────────────────────────────────────────────────────
+
+gateway.py (logging only):
+  if assessment['recommendation'] == 'needs-human-judgment':
+    LOG.info("Flagged for human review")
+
+openai_adapter.py (validation only):
+  require(value['recommendation'] in
+    ('recommend-approve','recommend-reject','needs-human-judgment',
+     'screen-out-irrelevant'))
+
+durable.py (storage/retrieval unchanged):
+  if row['assessment']:
+    loaded = json.loads(row['assessment'])
+    result['recommendation'] = loaded['recommendation']
+    # SAME VALUE, NO TRANSFORMATION
+
+app.py (display only):
+  result["ai"] = JobStore(db.db_path).public_summary(report_id)
+  return {"ai": result["ai"]}  # Includes recommendation as-is
+
+officer_detail.html (UI conditionals only):
+  if (aiData.recommendation === "recommend-approve")
+    setText("✅ Recommend Approve")
+
+
+WHAT DOES NOT HAPPEN:
+─────────────────────────────────────────────────────────────────────────────
+
+❌ App does NOT auto-approve if recommendation == "recommend-approve"
+❌ App does NOT auto-reject if recommendation == "recommend-reject"
+❌ App does NOT award points based on recommendation
+❌ App does NOT transform recommendation into another enum
+❌ App does NOT use recommendation to set report status
+❌ Recommendation is NOT an enum used by app logic
+
+What DOES happen:
+✓ Officer clicks button (APPROVE/REJECT/REQUEST-INFO)
+✓ Officer's action determines report status
+✓ Officer's action determines points (from POINTS_BY_VIOLATION table)
+✓ AI recommendation is purely advisory
+
+
+ACTUAL FLOW:
+─────────────────────────────────────────────────────────────────────────────
+
+Step 1: Citizen submits image
+        → Report status = "submitted"
+        → AI job created (status = "pending")
+
+Step 2: AI analyzes (background)
+        → Calls OpenAI/Gemini
+        → Gets JSON including recommendation field
+        → Stores in database
+
+Step 3: Officer views report
+        → GET /api/authority/reports/{id}
+        → Receives: {"ai": {"recommendation": "..."}}
+        → UI displays based on recommendation value
+
+Step 4: Officer clicks APPROVE button
+        → POST /api/authority/reports/{id}/decision {"action": "approve"}
+        → App checks officer permission ✓
+        → App gets violation_type from report
+        → App looks up POINTS_BY_VIOLATION[violation_type]
+        → App updates: status="approved", provisional_points=2
+
+Step 5: Citizen polls for update
+        → GET /api/reports/{id}
+        → Sees: {"status": "approved", "provisional_points": 2}
+        → NOT related to AI recommendation at all
+
+
+COMPARISON TABLE:
+─────────────────────────────────────────────────────────────────────────────
+
+What AI Returns          What Gets Stored    What Officer Sees      What Happens
+─────────────────────────────────────────────────────────────────────────────
+recommend-approve        recommend-approve   "✅ Recommend Approve" Officer can click
+                         (no change)                                APPROVE/REJECT
+
+recommend-reject         recommend-reject    "❌ Recommend Reject"  Officer can click
+                         (no change)                                APPROVE/REJECT
+
+needs-human-judgment     needs-human-judgment "⚠️ Needs Review"     Officer can click
+                         (no change)                                APPROVE/REJECT
+
+screen-out-irrelevant    screen-out-         "❓ Not About          Usually filtered
+                         irrelevant          Violation"             out of queue
+                         (no change)
+
+
+KEY INSIGHT:
+─────────────────────────────────────────────────────────────────────────────
+
+The AI recommendation enum is purely a DATA LABEL, not a DECISION TRIGGER.
+
+It tells officer "here's what AI thinks" but officer always makes the decision.
+
+Recommendation → Advisory Only (for officer reference)
+Officer Action → Binding (what actually changes report status)
+
+
+EXAMPLE SCENARIO:
+─────────────────────────────────────────────────────────────────────────────
+
+Image: Person without helmet visible
+AI recommendation: "recommend-approve" (82% confidence)
+
+Officer reviews and thinks:
+  "Wait, could be wearing a turban (religious exemption)"
+
+Officer clicks: [REJECT]
+
+Result:
+  Report status = "rejected" (Officer's choice wins)
+  Recommendation still in database = "recommend-approve" (unchanged)
+  Citizen sees = "rejected" (officer decision, not AI)
+
+
+STORED IN DATABASE:
+─────────────────────────────────────────────────────────────────────────────
+
+ai_jobs table:
+  id:          "abc123"
+  report_id:   "xyz789"
+  state:       "completed"
+  assessment:  '{"recommendation":"recommend-approve","violation_confidence":82,...}'
+               ↑ This is the EXACT string from AI, stored as JSON text
+
+reports table:
+  id:          "xyz789"
+  status:      "rejected"          ← Officer's decision (NOT from recommendation)
+  provisional_points: 0             ← Officer rejected, so 0 points
+
+
+CONCLUSION:
+─────────────────────────────────────────────────────────────────────────────
+
+Question: "how does recommendation translate to what app expects (enum)?"
+
+Answer: No translation. The recommendation value is received as a string enum,
+        stored as a string enum, and displayed to officer as a string enum.
+        The app never converts it to another type or uses it for any decisions.
+        
+        Officer makes all decisions independently.
+
+═══════════════════════════════════════════════════════════════════════════════

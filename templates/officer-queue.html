@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Review Queue - RoadWatch Officer Portal</title>
+  <link rel="stylesheet" href="/static/css/base.css">
+  <link rel="stylesheet" href="/static/css/layout.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+  <link rel="stylesheet" href="/static/css/responsive.css">
+</head>
+<body>
+  <header>
+    <h1>🚨 RoadWatch Officer - Review Queue</h1>
+    <nav>
+      <a href="/officer-queue.html">Queue</a>
+      <a href="#" id="refresh-link">Refresh</a>
+      <a href="#" id="logout-link">Logout</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <section class="section">
+      <h2>Pending Reports Queue</h2>
+      <p>Review and award violation points for pending reports.</p>
+
+      <div style="margin-bottom: 1rem; padding: 1rem; background: #f0f0f0; border-radius: 4px;">
+        <strong>Auto-refreshing every 30 seconds...</strong> <span id="last-update" style="color: #666;">Loading...</span>
+      </div>
+
+      <div id="queue-container">
+        <p style="text-align: center; color: #666;">Loading queue...</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>&copy; 2024 RoadWatch Traffic MVP.</p>
+  </footer>
+
+  <script src="/static/js/utils.js"></script>
+  <script src="/static/js/auth.js"></script>
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/common.js"></script>
+  <script>
+    // CRITICAL FIX: Auth check with proper script loading guarantee
+    // Ensure AUTH object is available before checking
+    function checkAuthAndLoad() {
+      if (typeof AUTH === 'undefined' || !AUTH.isReviewer) {
+        // Scripts still loading, retry
+        setTimeout(checkAuthAndLoad, 100);
+        return;
+      }
+      
+      if (!AUTH.isReviewer()) {
+        window.location.href = '/officer-login.html';
+      }
+    }
+    
+    checkAuthAndLoad();
+
+    document.getElementById('logout-link').addEventListener('click', (e) => {
+      e.preventDefault();
+      AUTH.clearAuth();
+      window.location.href = '/officer-login.html';
+    });
+
+    document.getElementById('refresh-link').addEventListener('click', (e) => {
+      e.preventDefault();
+      loadQueue();
+    });
+
+    async function loadQueue() {
+      const result = await API.getReviewQueue();
+      const container = document.getElementById('queue-container');
+      document.getElementById('last-update').textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
+
+      if (!result.success) {
+        container.innerHTML = `<div class="alert alert-error">Failed to load queue: ${result.error}</div>`;
+        return;
+      }
+
+      const reports = result.data.reports || [];
+      if (reports.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #999;">No pending reports in queue.</p>';
+        return;
+      }
+
+      let html = '';
+      reports.forEach(report => {
+        html += `
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h3 class="card-title">${UI.formatViolation(report.violation_type)}</h3>
+                <p style="font-size: 0.9rem; color: #666;">${report.vehicle_number} | ${report.location}</p>
+              </div>
+              <span class="badge badge-pending">PENDING</span>
+            </div>
+            <div class="card-content">
+              <p><strong>Submitted:</strong> ${UI.formatDate(report.created_at)}</p>
+              <p><strong>Citizen ID:</strong> ${report.citizen_id}</p>
+            </div>
+            <div class="card-footer">
+              <a href="/officer-detail.html?id=${report.id}" class="btn btn-primary">Review Case</a>
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    // Load queue immediately
+    loadQueue();
+
+    // Auto-refresh every 30 seconds
+    setInterval(loadQueue, API.POLL_INTERVAL_MS);
+  </script>
+</body>
+</html>

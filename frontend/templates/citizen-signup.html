@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Citizen Sign Up - RoadWatch Traffic MVP</title>
+  <link rel="stylesheet" href="/static/css/base.css">
+  <link rel="stylesheet" href="/static/css/layout.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+  <link rel="stylesheet" href="/static/css/responsive.css">
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .signup-container {
+      background: white;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+      width: 100%;
+      max-width: 400px;
+    }
+    
+    .signup-container h1 {
+      text-align: center;
+      margin-bottom: 0.5rem;
+      color: #333;
+    }
+    
+    .signup-container p {
+      text-align: center;
+      color: #666;
+      margin-bottom: 2rem;
+      font-size: 0.9rem;
+    }
+    
+    .form-group input {
+      margin-bottom: 1rem;
+    }
+    
+    .alert-info {
+      background: #d1ecf1;
+      border: 1px solid #bee5eb;
+      color: #0c5460;
+      padding: 0.75rem;
+      border-radius: 4px;
+      margin-bottom: 1rem;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="signup-container">
+    <h1>🚗 RoadWatch</h1>
+    <p>Citizen Sign Up</p>
+    
+    <div class="alert-info">
+      <strong>Demo Mode:</strong> In MVP, just enter any Citizen ID to create an account instantly. No email or password needed.
+    </div>
+    
+    <form id="signup-form">
+      <div class="form-group">
+        <label for="citizen_id">Citizen ID *</label>
+        <input 
+          type="text" 
+          id="citizen_id" 
+          name="citizen_id" 
+          placeholder="e.g., john-doe-123"
+          required
+          minlength="3"
+          maxlength="50"
+        >
+        <small style="color: #666;">Choose any unique ID (letters, numbers, hyphens)</small>
+      </div>
+      
+      <div class="form-group">
+        <label for="full_name">Full Name (Optional)</label>
+        <input 
+          type="text" 
+          id="full_name" 
+          name="full_name" 
+          placeholder="Your full name"
+        >
+      </div>
+      
+      <button type="submit" class="btn btn-primary btn-block">Create Account</button>
+      
+      <hr style="margin: 2rem 0; border: none; border-top: 1px solid #ddd;">
+      
+      <p style="text-align: center; color: #666; font-size: 0.85rem;">
+        Already have an account? <a href="/citizen-login.html">Login here</a>
+      </p>
+      
+      <p style="text-align: center; color: #666; font-size: 0.85rem;">
+        Are you an officer? <a href="/officer-login.html">Login here</a>
+      </p>
+    </form>
+  </div>
+
+  <script src="/static/js/utils.js"></script>
+  <script src="/static/js/auth.js"></script>
+  <script src="/static/js/common.js"></script>
+  <script>
+    document.getElementById('signup-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      const citizenId = document.getElementById('citizen_id').value.trim();
+      const fullName = document.getElementById('full_name').value.trim();
+      
+      if (!citizenId) {
+        UI.showAlert('Please enter a Citizen ID', 'error');
+        return;
+      }
+      
+      if (citizenId.length < 3) {
+        UI.showAlert('Citizen ID must be at least 3 characters', 'error');
+        return;
+      }
+      
+      // In MVP, just set the ID and redirect
+      AUTH.setCitizenId(citizenId);
+      localStorage.setItem('citizen_id', citizenId); // Double-check storage
+      
+      // Verify it was stored
+      const stored = localStorage.getItem('citizen_id');
+      if (stored === citizenId) {
+        UI.showToast(`Welcome, ${fullName || citizenId}!`, 'success');
+        
+        // Redirect to reports page
+        setTimeout(() => {
+          window.location.href = '/citizen-reports.html';
+        }, 800);
+      } else {
+        UI.showAlert('Failed to create account. Please try again.', 'error');
+      }
+    });
+  </script>
+</body>
+</html>

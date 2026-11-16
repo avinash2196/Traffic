@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Citizen Dashboard - RoadWatch Traffic MVP</title>
+  <link rel="stylesheet" href="/static/css/base.css">
+  <link rel="stylesheet" href="/static/css/layout.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+  <link rel="stylesheet" href="/static/css/responsive.css">
+</head>
+<body>
+  <header>
+    <h1>🚗 RoadWatch - Citizen Dashboard</h1>
+    <nav>
+      <a href="/citizen-dashboard.html">Dashboard</a>
+      <a href="/citizen-report.html">Report Violation</a>
+      <a href="/citizen-reports.html">My Reports</a>
+      <a href="#" id="logout-link">Logout</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <section class="section">
+      <h2>Welcome to RoadWatch</h2>
+      <p>Report traffic violations with photo/video evidence. Officers review and award violation points.</p>
+      
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Report New Violation</h3>
+          </div>
+          <p>Submit a new traffic violation with evidence photo or video.</p>
+          <div class="card-footer">
+            <a href="/citizen-report.html" class="btn btn-primary">Create Report</a>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">View My Reports</h3>
+          </div>
+          <p id="report-count">Fetching your reports...</p>
+          <div class="card-footer">
+            <a href="/citizen-reports.html" class="btn btn-secondary">View All</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Quick Stats</h2>
+      <div class="grid-3">
+        <div class="card">
+          <h4>Pending</h4>
+          <p id="stat-pending" style="font-size: 2rem; font-weight: bold; color: #ffc107;">-</p>
+        </div>
+        <div class="card">
+          <h4>Approved</h4>
+          <p id="stat-approved" style="font-size: 2rem; font-weight: bold; color: #28a745;">-</p>
+        </div>
+        <div class="card">
+          <h4>Rejected</h4>
+          <p id="stat-rejected" style="font-size: 2rem; font-weight: bold; color: #dc3545;">-</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>&copy; 2024 RoadWatch Traffic MVP. All rights reserved.</p>
+  </footer>
+
+  <script src="/static/js/utils.js"></script>
+  <script src="/static/js/auth.js"></script>
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/common.js"></script>
+  <script>
+    // CRITICAL FIX: Auth check with proper script loading guarantee
+    function checkAuthAndLoad() {
+      if (typeof AUTH === 'undefined' || !AUTH.isCitizen) {
+        setTimeout(checkAuthAndLoad, 100);
+        return;
+      }
+      
+      if (!AUTH.isCitizen()) {
+        window.location.href = '/citizen-login.html';
+      } else {
+        loadDashboard();
+      }
+    }
+    
+    checkAuthAndLoad();
+
+    // Setup logout
+    document.getElementById('logout-link').addEventListener('click', (e) => {
+      e.preventDefault();
+      AUTH.clearAuth();
+      window.location.href = '/citizen-login.html';
+    });
+
+    // Load dashboard data
+    async function loadDashboard() {
+      const result = await API.getReports();
+      if (result.success && result.data.reports) {
+        const reports = result.data.reports;
+        document.getElementById('report-count').textContent = `You have ${reports.length} report(s)`;
+        
+        let pending = 0, approved = 0, rejected = 0;
+        reports.forEach(r => {
+          if (r.status === 'pending') pending++;
+          else if (r.status === 'approved') approved++;
+          else if (r.status === 'rejected') rejected++;
+        });
+        
+        document.getElementById('stat-pending').textContent = pending;
+        document.getElementById('stat-approved').textContent = approved;
+        document.getElementById('stat-rejected').textContent = rejected;
+      }
+    }
+  </script>
+</body>
+</html>

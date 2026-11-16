@@ -1,0 +1,102 @@
+{
+  ".deepeval": {
+    "directory": true,
+    "size": 0,
+    "mtime_ns": 1793581658926927000
+  },
+  ".dockerignore": {
+    "directory": false,
+    "size": 517,
+    "mtime_ns": 1793595219988839600
+  },
+  ".env.example": {
+    "directory": false,
+    "size": 7562,
+    "mtime_ns": 1793651356470850100
+  },
+  ".git": {
+    "directory": true,
+    "size": 4096,
+    "mtime_ns": 1794445888071242100
+  },
+  ".github": {
+    "directory": true,
+    "size": 0,
+    "mtime_ns": 1793578161610126500
+  },
+  ".gitignore": {
+    "directory": false,
+    "size": 78,
+    "mtime_ns": 1792898201180297500
+  },
+  ".local": {
+    "directory": true,
+    "size": 4096,
+    "mtime_ns": 1794363997233902800
+  },
+  ".pytest_cache": {
+    "directory": true,
+    "size": 0,
+    "mtime_ns": 1793581662217330600
+  },
+  ".venv": {
+    "directory": true,
+    "size": 4096,
+    "mtime_ns": 1792898201674367700
+  },
+  "docs": {
+    "directory": true,
+    "size": 20480,
+    "mtime_ns": 1793773396076014600
+  },
+  "media_store": {
+    "directory": true,
+    "size": 4096,
+    "mtime_ns": 1793769104075036500
+  },
+  "README.md": {
+    "directory": false,
+    "size": 5387,
+    "mtime_ns": 1793773587427364700
+  },
+  "roadwatch.db": {
+    "directory": false,
+    "size": 126976,
+    "mtime_ns": 1794171051258729800
+  },
+  "start-windows.ps1": {
+    "directory": false,
+    "size": 4022,
+    "mtime_ns": 1793671294921440600
+  },
+  "start.sh": {
+    "directory": false,
+    "size": 1508,
+    "mtime_ns": 1793595188355042400
+  },
+  "static": {
+    "directory": true,
+    "size": 0,
+    "mtime_ns": 1793595481336928500
+  },
+  "templates": {
+    "directory": true,
+    "size": 4096,
+    "mtime_ns": 1793670904404848900
+  },
+  "tests": {
+    "directory": true,
+    "size": 8192,
+    "mtime_ns": 1794446861414901200
+  },
+  "tools": {
+    "directory": true,
+    "size": 0,
+    "mtime_ns": 1793657210198350400
+  },
+  "__pycache__": {
+    "directory": true,
+    "size": 4096,
+    "mtime_ns": 1794281041258248700
+  }
+}

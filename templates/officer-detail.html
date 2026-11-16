@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Case Detail - RoadWatch Officer Portal</title>
+  <link rel="stylesheet" href="/static/css/base.css">
+  <link rel="stylesheet" href="/static/css/layout.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+  <link rel="stylesheet" href="/static/css/responsive.css">
+</head>
+<body>
+  <header>
+    <h1>🚨 RoadWatch Officer - Case Detail</h1>
+    <nav>
+      <a href="/officer-queue.html">Queue</a>
+      <a href="#" id="logout-link">Logout</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <section class="section" id="case-container">
+      <p style="text-align: center;">Loading case...</p>
+    </section>
+
+    <section class="section" id="decision-container">
+      <h2>Make Decision</h2>
+      <form id="decision-form">
+        <div class="form-group">
+          <label for="decision_type">Decision *</label>
+          <select id="decision_type" required>
+            <option value="">-- Select --</option>
+            <option value="approved">Approve & Award Points</option>
+            <option value="rejected">Reject (No Points)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="comments">Comments/Remarks</label>
+          <textarea id="comments" placeholder="Optional: Explain your decision..."></textarea>
+        </div>
+
+        <div class="form-row">
+          <button type="submit" class="btn btn-success" id="submit-decision">Submit Decision</button>
+          <a href="/officer-queue.html" class="btn btn-secondary">Back to Queue</a>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <footer>
+    <p>&copy; 2024 RoadWatch Traffic MVP.</p>
+  </footer>
+
+  <script src="/static/js/utils.js"></script>
+  <script src="/static/js/auth.js"></script>
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/common.js"></script>
+  <script>
+    // CRITICAL FIX: Auth check with proper script loading guarantee
+    function checkAuthAndLoad() {
+      if (typeof AUTH === 'undefined' || !AUTH.isReviewer) {
+        setTimeout(checkAuthAndLoad, 100);
+        return;
+      }
+      
+      if (!AUTH.isReviewer()) {
+        window.location.href = '/officer-login.html';
+      } else {
+        initializeDetailPage();
+      }
+    }
+    
+    function initializeDetailPage() {
+      document.getElementById('logout-link').addEventListener('click', (e) => {
+        e.preventDefault();
+        AUTH.clearAuth();
+        window.location.href = '/officer-login.html';
+      });
+
+      const reportId = UTILS.getQueryParam('id');
+      if (!reportId) {
+        document.getElementById('case-container').innerHTML = '<div class="alert alert-error">No report ID specified</div>';
+        document.getElementById('decision-container').style.display = 'none';
+      } else {
+        loadCase();
+      }
+    }
+    
+    async function loadCase() {
+        const result = await API.getReviewDetail(reportId);
+
+        if (!result.success) {
+          document.getElementById('case-container').innerHTML = `
+            <div class="alert alert-error">Failed to load case: ${result.error}</div>
+            <a href="/officer-queue.html" class="btn btn-secondary">Back to Queue</a>
+          `;
+          document.getElementById('decision-container').style.display = 'none';
+          return;
+        }
+
+        const report = result.data;
+
+        let html = `
+          <h2>${UI.formatViolation(report.violation_type)}</h2>
+
+          <div class="grid-2" style="margin: 1.5rem 0;">
+            <div>
+              <p><strong>Vehicle Number:</strong> ${report.vehicle_number}</p>
+              <p><strong>Location:</strong> ${report.location}</p>
+              <p><strong>Citizen ID:</strong> ${report.citizen_id}</p>
+            </div>
+            <div>
+              <p><strong>Submitted:</strong> ${UI.formatDate(report.created_at)}</p>
+              <p><strong>Status:</strong> ${report.status}</p>
+            </div>
+          </div>
+        `;
+
+        if (report.description) {
+          html += `<p><strong>Description:</strong></p><p>${report.description}</p>`;
+        }
+
+        // AI Assessment Section (M10-M12)
+        if (report.ai) {
+          html += '<div style="background: #f8f9fa; border-left: 4px solid #0d6efd; padding: 1rem; margin: 1.5rem 0; border-radius: 4px;">';
+          html += '<h3>🤖 AI Assessment</h3>';
+          
+          if (report.ai.state === 'failed') {
+            html += `<div class="alert alert-warning"><strong>⚠️ AI Processing Failed</strong><br>`;
+            html += `Reason: ${report.ai.failure_reason}<br>`;
+            html += `Code: ${report.ai.failure_code}<br>`;
+            html += `Attempts: ${report.ai.attempt_count}/${report.ai.max_attempts}`;
+            html += `</div>`;
+          } else if (report.ai.state === 'pending' || report.ai.state === 'processing') {
+            html += `<div class="alert alert-info"><strong>⏳ AI Processing in Progress</strong><br>`;
+            html += `State: ${report.ai.state}<br>`;
+            html += `Attempts: ${report.ai.attempt_count}/${report.ai.max_attempts}`;
+            html += `</div>`;
+          } else if (report.ai.state === 'success') {
+            html += `<div class="alert alert-success"><strong>✅ AI Assessment Complete</strong></div>`;
+            if (report.ai.recommendation) {
+              html += `<p><strong>Recommendation:</strong> ${report.ai.recommendation}</p>`;
+            }
+            if (report.ai.outcome) {
+              html += `<p><strong>Outcome:</strong> ${report.ai.outcome}</p>`;
+            }
+          }
+          
+          html += `<p style="font-size: 0.9rem; color: #666;">`;
+          html += `Processing time: ${report.ai.processing_ms || 0}ms | `;
+          html += `Job ID: ${report.ai.job_id}<br>`;
+          html += `Started: ${new Date(report.ai.started_at).toLocaleString()} | `;
+          html += `Completed: ${report.ai.completed_at ? new Date(report.ai.completed_at).toLocaleString() : 'pending'}`;
+          html += `</p>`;
+          html += '</div>';
+        }
+
+        if (report.media && report.media.length > 0) {
+          html += '<p><strong>Evidence Media:</strong></p>';
+          report.media.forEach(m => {
+            if (m.type === 'image') {
+              html += `<div style="margin: 1rem 0;"><img src="${m.url}" class="media-preview" alt="Evidence" style="max-width: 100%; max-height: 400px; border: 1px solid #ddd; padding: 4px;"></div>`;
+            } else if (m.type === 'video') {
+              html += `<div style="margin: 1rem 0;"><video class="media-preview" controls style="max-width: 100%; max-height: 400px; border: 1px solid #ddd;"><source src="${m.url}" type="${m.mime_type}">Your browser does not support the video tag.</video></div>`;
+            } else if (m.type === 'audio') {
+              html += `<div style="margin: 1rem 0;"><audio controls style="width: 100%;"><source src="${m.url}" type="${m.mime_type}">Your browser does not support the audio tag.</audio></div>`;
+            } else {
+              html += `<div style="margin: 1rem 0;"><a href="${m.url}" target="_blank">${m.filename}</a></div>`;
+            }
+          });
+        }
+
+        // Download Evidence button (M6 integration)
+        html += `
+          <div style="margin: 1.5rem 0;">
+            <button type="button" class="btn btn-secondary" id="download-evidence-btn">
+              📥 Download Evidence ZIP
+            </button>
+          </div>
+        `;
+
+        document.getElementById('case-container').innerHTML = html;
+
+        // Setup download button
+        document.getElementById('download-evidence-btn').addEventListener('click', async () => {
+          UI.showLoading('Downloading evidence...');
+          const result = await API.downloadEvidence(reportId);
+          UI.hideLoading();
+          if (result.success) {
+            UI.showToast('Evidence downloaded', 'success');
+          } else {
+            UI.showAlert(`Download failed: ${result.error}`, 'error');
+          }
+        });
+      }
+
+      loadCase();
+
+      // Handle decision submission
+      document.getElementById('decision-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const decisionType = document.getElementById('decision_type').value;
+        const comments = document.getElementById('comments').value;
+
+        if (!decisionType) {
+          UI.showAlert('Please select a decision', 'error');
+          return;
+        }
+
+        const confirmed = await UI.confirmAction(`Confirm ${decisionType} decision?`);
+        if (!confirmed) return;
+
+        UI.showLoading('Submitting decision...');
+        UI.disableButton(document.getElementById('submit-decision'));
+
+        const result = await API.submitDecision(reportId, {
+          decision_type: decisionType,
+          comments: comments,
+        });
+
+        UI.hideLoading();
+
+        if (result.success) {
+          UI.showToast('Decision recorded successfully!', 'success');
+          setTimeout(() => {
+            window.location.href = '/officer-queue.html';
+          }, 1500);
+        } else {
+          UI.showAlert(`Failed: ${result.error}`, 'error');
+          UI.enableButton(document.getElementById('submit-decision'));
+        }
+      });
+    }
+    
+    checkAuthAndLoad();
+  </script>
+</body>
+</html>

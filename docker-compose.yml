@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  # Frontend: Static files served by Nginx
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    container_name: roadwatch-frontend
+    environment:
+      - NODE_ENV=production
+    networks:
+      - roadwatch
+    depends_on:
+      - api
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+  # API Backend: FastAPI
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    container_name: roadwatch-api
+    environment:
+      - ROADWATCH_REVIEWER_TOKEN=${ROADWATCH_REVIEWER_TOKEN:-demo-reviewer-token-mvp}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
+      - DATABASE_URL=sqlite:///./roadwatch.db
+    volumes:
+      - ./backend/roadwatch.db:/app/roadwatch.db
+      - ./backend/media_store:/app/media_store
+    networks:
+      - roadwatch
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8001/api/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # AI Gateway: Optional service for AI processing
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    container_name: roadwatch-gateway
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.0-flash}
+    networks:
+      - roadwatch
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+networks:
+  roadwatch:
+    driver: bridge
+
+volumes:
+  database:
+    driver: local
+  media:
+    driver: local

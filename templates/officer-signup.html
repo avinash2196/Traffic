@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Officer Registration - RoadWatch Traffic MVP</title>
+  <link rel="stylesheet" href="/static/css/base.css">
+  <link rel="stylesheet" href="/static/css/layout.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+  <link rel="stylesheet" href="/static/css/responsive.css">
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+    
+    .signup-container {
+      background: white;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+      width: 100%;
+      max-width: 400px;
+    }
+    
+    .signup-container h1 {
+      text-align: center;
+      margin-bottom: 0.5rem;
+      color: #333;
+    }
+    
+    .signup-container p {
+      text-align: center;
+      color: #666;
+      margin-bottom: 2rem;
+      font-size: 0.9rem;
+    }
+    
+    .form-group input {
+      margin-bottom: 1rem;
+    }
+    
+    .alert-info {
+      background: #d1ecf1;
+      border: 1px solid #bee5eb;
+      color: #0c5460;
+      padding: 0.75rem;
+      border-radius: 4px;
+      margin-bottom: 1rem;
+      font-size: 0.85rem;
+    }
+    
+    code {
+      background: #f5f5f5;
+      padding: 2px 4px;
+      border-radius: 3px;
+      font-family: monospace;
+      color: #d63384;
+    }
+    
+    .loading { display: none; }
+    
+    .form-help {
+      font-size: 0.75rem;
+      color: #666;
+      margin-top: 0.25rem;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="signup-container">
+    <h1>🚨 RoadWatch Officer</h1>
+    <p>Officer Registration</p>
+    
+    <form id="signup-form">
+      <div class="form-group">
+        <label for="full_name">Full Name *</label>
+        <input 
+          type="text" 
+          id="full_name" 
+          name="full_name" 
+          placeholder="e.g., John Smith"
+          required
+          minlength="3"
+          maxlength="100"
+        >
+      </div>
+      
+      <div class="form-group">
+        <label for="email">Email *</label>
+        <input 
+          type="email" 
+          id="email" 
+          name="email" 
+          placeholder="officer@example.com"
+          required
+        >
+      </div>
+      
+      <div class="form-group">
+        <label for="password">Password *</label>
+        <input 
+          type="password" 
+          id="password" 
+          name="password" 
+          placeholder="At least 6 characters"
+          required
+          minlength="6"
+          maxlength="50"
+        >
+        <span class="form-help">Minimum 6 characters</span>
+      </div>
+      
+      <div class="form-group">
+        <label for="reviewer_token">Reviewer Token *</label>
+        <input 
+          type="password" 
+          id="reviewer_token" 
+          name="reviewer_token" 
+          placeholder="Shared token for registration"
+          required
+          minlength="3"
+          maxlength="100"
+        >
+        <span class="form-help">Admin provides this to verify officer</span>
+      </div>
+      
+      <button type="submit" class="btn btn-primary btn-block">Register</button>
+      
+      <div class="loading" id="loading">
+        <p style="text-align: center; color: #666;">Registering...</p>
+      </div>
+      
+      <hr style="margin: 2rem 0; border: none; border-top: 1px solid #ddd;">
+      
+      <p style="text-align: center; color: #666; font-size: 0.85rem;">
+        Already registered? <a href="/officer-login.html">Login here</a>
+      </p>
+      
+      <p style="text-align: center; color: #666; font-size: 0.85rem;">
+        Are you a citizen? <a href="/citizen-login.html">Login here</a>
+      </p>
+    </form>
+  </div>
+
+  <script src="/static/js/utils.js"></script>
+  <script src="/static/js/auth.js"></script>
+  <script src="/static/js/common.js"></script>
+  <script>
+    document.getElementById('signup-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const fullName = document.getElementById('full_name').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const reviewerToken = document.getElementById('reviewer_token').value.trim();
+      
+      if (!fullName || !email || !password || !reviewerToken) {
+        UI.showAlert('Please fill all required fields', 'error');
+        return;
+      }
+      
+      document.getElementById('loading').style.display = 'block';
+      document.querySelector('button[type="submit"]').disabled = true;
+      
+      try {
+        const response = await fetch('/api/officer/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email,
+            password,
+            reviewer_token: reviewerToken,
+            full_name: fullName
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.officer_id) {
+          UI.showAlert('Registration successful! Redirecting to login...', 'success');
+          setTimeout(() => {
+            window.location.href = '/officer-login.html';
+          }, 1500);
+        } else {
+          UI.showAlert(data.error || 'Registration failed', 'error');
+        }
+      } catch (err) {
+        UI.showAlert('Network error: ' + err.message, 'error');
+      } finally {
+        document.getElementById('loading').style.display = 'none';
+        document.querySelector('button[type="submit"]').disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
+

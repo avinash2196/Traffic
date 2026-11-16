@@ -1,0 +1,12 @@
+{
+  "agw_protocol.py": "9e7c146c27037b9387f502cc640562fd2701c07e5bb34da4f03d4e4c225822a9",
+  "agw_transport.py": "f7ff1abb7de88a0f8a014a8ba471e19af9aeb334b385630bb10293be928de642",
+  "agw_media.py": "f0b13c61cd9f969ec2b0798b1d0e61828976b8366ea0b8b92e1925d392f0ff59",
+  "openai_adapter.py": "f3e96ee93f55a3176920c96b1bc1d07ba56fc443f16e6bc59ea95e8c390f96eb",
+  "gemini.py": "07f41347e6fe6c84bdba3d7d3af669b9c277e70856620af19a4ecd7f62e9c68d",
+  "ai_gateway_service.py": "b25ea0f8c09acfc49b69ef08abb95f0067313d7a7c3d8f6d57525fe313553652",
+  "assessment_policy.py": "55362d3c417777a5a34de2f0df66fea24b9f6a4fbf765502c5cd6295ad2f0810",
+  "gateway.py": "4e65e148811e5db4dfe7acda5d4b2d3d96a7fe18a06f27d58638e5ccdbb5101b",
+  "durable.py": "35c04de435844fdbbc1fb83b413f65de12486544501db87bab3d931a8c5a883f",
+  "docs/AI-GATEWAY-LOCAL.md": "8539975c95793d180ece63e671e3e3a318d12ffbb8e93e541b908cc787be7948"
+}

@@ -1,0 +1,11 @@
+{
+  "owned_root": "C:\\Users\\avina\\AppData\\Local\\Temp\\asor-agw-m03-plan-20261111",
+  "removed": true,
+  "source_test_config_dependency_changes": false,
+  "owned_processes_observed_after_verification": 0,
+  "running_decoder_carriers_observed": 0,
+  "prior_logs_untouched": true,
+  "private_content_inspected_or_hashed": false,
+  "final_focused": "21 passed 37.64s; protection passed",
+  "final_scoped_db": "2 passed 12.94s; driver exit1 directory-size-only protection difference disclosed"
+}

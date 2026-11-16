@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="19" skipped="0" tests="19" time="3.416" timestamp="2026-11-11T18:54:50.710937-06:00" hostname="DESKTOP-PRD6KDI"><testcase classname="tests.test_gateway_service" name="test_separate_image_wire_and_safe_trace" time="0.886"><failure message="AssertionError: SEPARATE_HTTP_ASSESSMENT_MISSING&#10;assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests\test_gateway_service.py:144: in test_separate_image_wire_and_safe_trace
+    value=service.positive()
+          ^^^^^^^^^^^^^^^^^^
+tests\test_gateway_service.py:99: in positive
+    assert response.status_code == 200, 'SEPARATE_HTTP_ASSESSMENT_MISSING'
+E   AssertionError: SEPARATE_HTTP_ASSESSMENT_MISSING
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_gateway_service" name="test_rejection_partitions[auth-401-UNAUTHORIZED]" time="0.003"><failure message="AssertionError: SEPARATE_HTTP_ASSESSMENT_MISSING&#10;assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests\test_gateway_service.py:172: in test_rejection_partitions
+    service.positive()  # Proves the negative assertions below are not vacuous.
+    ^^^^^^^^^^^^^^^^^^
+tests\test_gateway_service.py:99: in positive
+    assert response.status_code == 200, 'SEPARATE_HTTP_ASSESSMENT_MISSING'
+E   AssertionError: SEPARATE_HTTP_ASSESSMENT_MISSING
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_gateway_service" name="test_rejection_partitions[query-400-INVALID_REQUEST]" time="0.003"><failure message="AssertionError: SEPARATE_HTTP_ASSESSMENT_MISSING&#10;assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests\test_gateway_service.py:172: in test_rejection_partitions
+    service.positive()  # Proves the negative assertions below are not vacuous.
+    ^^^^^^^^^^^^^^^^^^
+tests\test_gateway_service.py:99: in positive
+    assert response.status_code == 200, 'SEPARATE_HTTP_ASSESSMENT_MISSING'
+E   AssertionError: SEPARATE_HTTP_ASSESSMENT_MISSING
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_gateway_service" name="test_rejection_partitions[unknown-400-INVALID_REQUEST]" time="0.003"><failure message="AssertionError: SEPARATE_HTTP_ASSESSMENT_MISSING&#10;assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests\test_gateway_service.py:172: in test_rejection_partitions
+    service.positive()  # Proves the negative assertions below are not vacuous.
+    ^^^^^^^^^^^^^^^^^^
+tests\test_gateway_service.py:99: in positive
+    assert response.status_code == 200, 'SEPARATE_HTTP_ASSESSMENT_MISSING'
+E   AssertionError: SEPARATE_HTTP_ASSESSMENT_MISSING
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_gateway_service" name="test_rejection_partitions[boolean-400-INVALID_REQUEST]" time="0.003"><failure message="AssertionError: SEPARATE_HTTP_ASSESSMENT_MISSING&#10;assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests\test_gateway_service.py:172: in test_rejection_partitions
+    service.positive()  # Proves the negative assertions below are not vacuous.
+    ^^^^^^^^^^^^^^^^^^
+tests\test_gateway_service.py:99: in positive
+    assert response.status_code == 200, 'SEPARATE_HTTP_ASSESSMENT_MISSING'
+E   AssertionError: SEPARATE_HTTP_ASSESSMENT_MISSING
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_gateway_service" name="test_rejection_partitions[duplicate-400-INVALID_REQUEST]" time="0.003"><failure message="AssertionError: SEPARATE_HTTP_ASSESSMENT_MISSING&#10;assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests\test_gateway_service.py:172: in test_rejection_partitions
+    service.positive()  # Proves the negative assertions below are not vacuous.
+    ^^^^^^^^^^^^^^^^^^
+tests\test_gateway_service.py:99: in positive
+    assert response.status_code == 200, 'SEPARATE_HTTP_ASSESSMENT_MISSING'
+E   AssertionError: SEPARATE_HTTP_ASSESSMENT_MISSING
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_gateway_service" name="test_rejection_partitions[base64-400-INVALID_REQUEST]" time="0.005"><failure message="AssertionError: SEPARATE_HTTP_ASSESSMENT_MISSING&#10;assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests\test_gateway_service.py:172: in test_rejection_partitions
+    service.positive()  # Proves the negative assertions below are not vacuous.
+    ^^^^^^^^^^^^^^^^^^
+tests\test_gateway_service.py:99: in positive
+    assert response.status_code == 200, 'SEPARATE_HTTP_ASSESSMENT_MISSING'
+E   AssertionError: SEPARATE_HTTP_ASSESSMENT_MISSING
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_gateway_service" name="test_rejection_partitions[count-413-REQUEST_TOO_LARGE]" time="0.003"><failure message="AssertionError: SEPARATE_HTTP_ASSESSMENT_MISSING&#10;assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests\test_gateway_service.py:172: in test_rejection_partitions
+    service.positive()  # Proves the negative assertions below are not vacuous.
+    ^^^^^^^^^^^^^^^^^^
+tests\test_gateway_service.py:99: in positive
+    assert response.status_code == 200, 'SEPARATE_HTTP_ASSESSMENT_MISSING'
+E   AssertionError: SEPARATE_HTTP_ASSESSMENT_MISSING
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_gateway_service" name="test_rejection_partitions[prompt-409-PROMPT_INCOMPATIBLE]" time="0.003"><failure message="AssertionError: SEPARATE_HTTP_ASSESSMENT_MISSING&#10;assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests\test_gateway_service.py:172: in test_rejection_partitions
+    service.positive()  # Proves the negative assertions below are not vacuous.
+    ^^^^^^^^^^^^^^^^^^
+tests\test_gateway_service.py:99: in positive
+    assert response.status_code == 200, 'SEPARATE_HTTP_ASSESSMENT_MISSING'
+E   AssertionError: SEPARATE_HTTP_ASSESSMENT_MISSING
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_gateway_service" name="test_rejection_partitions[selection-409-SELECTION_INCOMPATIBLE]" time="0.004"><failure message="AssertionError: SEPARATE_HTTP_ASSESSMENT_MISSING&#10;assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests\test_gateway_service.py:172: in test_rejection_partitions
+    service.positive()  # Proves the negative assertions below are not vacuous.
+    ^^^^^^^^^^^^^^^^^^
+tests\test_gateway_service.py:99: in positive
+    assert response.status_code == 200, 'SEPARATE_HTTP_ASSESSMENT_MISSING'
+E   AssertionError: SEPARATE_HTTP_ASSESSMENT_MISSING
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_gateway_service" name="test_rejection_partitions[method-405-METHOD_NOT_ALLOWED]" time="0.003"><failure message="AssertionError: SEPARATE_HTTP_ASSESSMENT_MISSING&#10;assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests\test_gateway_service.py:172: in test_rejection_partitions
+    service.positive()  # Proves the negative assertions below are not vacuous.
+    ^^^^^^^^^^^^^^^^^^
+tests\test_gateway_service.py:99: in positive
+    assert response.status_code == 200, 'SEPARATE_HTTP_ASSESSMENT_MISSING'
+E   AssertionError: SEPARATE_HTTP_ASSESSMENT_MISSING
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_gateway_service" name="test_rejection_partitions[encoding-415-UNSUPPORTED_MEDIA_TYPE]" time="0.003"><failure message="AssertionError: SEPARATE_HTTP_ASSESSMENT_MISSING&#10;assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests\test_gateway_service.py:172: in test_rejection_partitions
+    service.positive()  # Proves the negative assertions below are not vacuous.
+    ^^^^^^^^^^^^^^^^^^
+tests\test_gateway_service.py:99: in positive
+    assert response.status_code == 200, 'SEPARATE_HTTP_ASSESSMENT_MISSING'
+E   AssertionError: SEPARATE_HTTP_ASSESSMENT_MISSING
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_gateway_service" name="test_rejection_partitions[decode-422-EVIDENCE_UNAVAILABLE]" time="0.007"><failure message="AssertionError: SEPARATE_HTTP_ASSESSMENT_MISSING&#10;assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests\test_gateway_service.py:172: in test_rejection_partitions
+    service.positive()  # Proves the negative assertions below are not vacuous.
+    ^^^^^^^^^^^^^^^^^^
+tests\test_gateway_service.py:99: in positive
+    assert response.status_code == 200, 'SEPARATE_HTTP_ASSESSMENT_MISSING'
+E   AssertionError: SEPARATE_HTTP_ASSESSMENT_MISSING
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_gateway_service" name="test_output_failure_retains_independent_usage[refusal-MODEL_REFUSAL]" time="0.007"><failure message="AssertionError: SEPARATE_HTTP_ASSESSMENT_MISSING&#10;assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests\test_gateway_service.py:198: in test_output_failure_retains_independent_usage
+    service.positive()
+tests\test_gateway_service.py:99: in positive
+    assert response.status_code == 200, 'SEPARATE_HTTP_ASSESSMENT_MISSING'
+E   AssertionError: SEPARATE_HTTP_ASSESSMENT_MISSING
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_gateway_service" name="test_output_failure_retains_independent_usage[invalid-INVALID_MODEL_OUTPUT]" time="0.006"><failure message="AssertionError: SEPARATE_HTTP_ASSESSMENT_MISSING&#10;assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests\test_gateway_service.py:198: in test_output_failure_retains_independent_usage
+    service.positive()
+tests\test_gateway_service.py:99: in positive
+    assert response.status_code == 200, 'SEPARATE_HTTP_ASSESSMENT_MISSING'
+E   AssertionError: SEPARATE_HTTP_ASSESSMENT_MISSING
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_gateway_service" name="test_v2_video_actual_pts_and_incomplete_referral" time="0.010"><failure message="AssertionError: SEPARATE_HTTP_ASSESSMENT_MISSING&#10;assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests\test_gateway_service.py:214: in test_v2_video_actual_pts_and_incomplete_referral
+    service.positive()
+tests\test_gateway_service.py:99: in positive
+    assert response.status_code == 200, 'SEPARATE_HTTP_ASSESSMENT_MISSING'
+E   AssertionError: SEPARATE_HTTP_ASSESSMENT_MISSING
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_gateway_service" name="test_absolute_budget_and_terminal_scratch_cleanup" time="0.006"><failure message="AssertionError: SEPARATE_HTTP_ASSESSMENT_MISSING&#10;assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests\test_gateway_service.py:242: in test_absolute_budget_and_terminal_scratch_cleanup
+    service.positive()
+tests\test_gateway_service.py:99: in positive
+    assert response.status_code == 200, 'SEPARATE_HTTP_ASSESSMENT_MISSING'
+E   AssertionError: SEPARATE_HTTP_ASSESSMENT_MISSING
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_gateway_service" name="test_application_worker_owns_wire_and_persistence" time="1.451"><failure message="AssertionError: APPLICATION_WORKER_DID_NOT_TRAVERSE_GATEWAY_HTTP&#10;assert 0 == 1&#10; +  where 0 = len([])&#10; +    where [] = calls()&#10; +      where calls = &lt;test_gateway_service.Service object at 0x000002A6F4B84440&gt;.calls">tests\test_gateway_service.py:299: in test_application_worker_owns_wire_and_persistence
+    assert len(service.calls())==1,'APPLICATION_WORKER_DID_NOT_TRAVERSE_GATEWAY_HTTP'
+E   AssertionError: APPLICATION_WORKER_DID_NOT_TRAVERSE_GATEWAY_HTTP
+E   assert 0 == 1
+E    +  where 0 = len([])
+E    +    where [] = calls()
+E    +      where calls = &lt;test_gateway_service.Service object at 0x000002A6F4B84440&gt;.calls</failure></testcase><testcase classname="tests.test_gateway_service" name="test_restart_transients_consume_three_attempts_without_fallback" time="0.297"><failure message="AssertionError: APPLICATION_HTTP_RETRY_OWNERSHIP_MISSING&#10;assert 0 == 1&#10; +  where 0 = len([])&#10; +    where [] = calls()&#10; +      where calls = &lt;test_gateway_service.Service object at 0x000002A6F4B84440&gt;.calls">tests\test_gateway_service.py:314: in test_restart_transients_consume_three_attempts_without_fallback
+    assert len(service.calls())==number,'APPLICATION_HTTP_RETRY_OWNERSHIP_MISSING'
+E   AssertionError: APPLICATION_HTTP_RETRY_OWNERSHIP_MISSING
+E   assert 0 == 1
+E    +  where 0 = len([])
+E    +    where [] = calls()
+E    +      where calls = &lt;test_gateway_service.Service object at 0x000002A6F4B84440&gt;.calls</failure></testcase></testsuite></testsuites>

@@ -1,0 +1,64 @@
+{
+  "exact_source_files": [
+    {
+      "file": "agw_protocol.py",
+      "exact": true,
+      "compiled": true,
+      "lines": 165
+    },
+    {
+      "file": "agw_transport.py",
+      "exact": true,
+      "compiled": true,
+      "lines": 329
+    },
+    {
+      "file": "agw_media.py",
+      "exact": true,
+      "compiled": true,
+      "lines": 165
+    },
+    {
+      "file": "openai_adapter.py",
+      "exact": true,
+      "compiled": true,
+      "lines": 96
+    },
+    {
+      "file": "gemini.py",
+      "exact": true,
+      "compiled": true,
+      "lines": 103
+    },
+    {
+      "file": "ai_gateway_service.py",
+      "exact": true,
+      "compiled": true,
+      "lines": 208
+    },
+    {
+      "file": "assessment_policy.py",
+      "exact": true,
+      "compiled": true,
+      "lines": 115
+    },
+    {
+      "file": "gateway.py",
+      "exact": true,
+      "compiled": true,
+      "lines": 454
+    },
+    {
+      "file": "durable.py",
+      "exact": true,
+      "compiled": true,
+      "lines": 369
+    }
+  ],
+  "created_guide_present": true,
+  "approval_status_count": 1,
+  "original_allowlisted_sources_unchanged": true,
+  "final21": "21 passed in 37.64s; protection checks passed",
+  "final_db2": "2 passed in 12.94s; driver exit1 directory-size-only difference recorded",
+  "private_content_read_or_hashed": false
+}

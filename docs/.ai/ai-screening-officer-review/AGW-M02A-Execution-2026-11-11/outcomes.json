@@ -1,0 +1,90 @@
+{
+  "new": [
+    {
+      "name": "test_separate_image_wire_and_safe_trace",
+      "outcome": "failure"
+    },
+    {
+      "name": "test_rejection_partitions[auth-401-UNAUTHORIZED]",
+      "outcome": "failure"
+    },
+    {
+      "name": "test_rejection_partitions[query-400-INVALID_REQUEST]",
+      "outcome": "failure"
+    },
+    {
+      "name": "test_rejection_partitions[unknown-400-INVALID_REQUEST]",
+      "outcome": "failure"
+    },
+    {
+      "name": "test_rejection_partitions[boolean-400-INVALID_REQUEST]",
+      "outcome": "failure"
+    },
+    {
+      "name": "test_rejection_partitions[duplicate-400-INVALID_REQUEST]",
+      "outcome": "failure"
+    },
+    {
+      "name": "test_rejection_partitions[base64-400-INVALID_REQUEST]",
+      "outcome": "failure"
+    },
+    {
+      "name": "test_rejection_partitions[count-413-REQUEST_TOO_LARGE]",
+      "outcome": "failure"
+    },
+    {
+      "name": "test_rejection_partitions[prompt-409-PROMPT_INCOMPATIBLE]",
+      "outcome": "failure"
+    },
+    {
+      "name": "test_rejection_partitions[selection-409-SELECTION_INCOMPATIBLE]",
+      "outcome": "failure"
+    },
+    {
+      "name": "test_rejection_partitions[method-405-METHOD_NOT_ALLOWED]",
+      "outcome": "failure"
+    },
+    {
+      "name": "test_rejection_partitions[encoding-415-UNSUPPORTED_MEDIA_TYPE]",
+      "outcome": "failure"
+    },
+    {
+      "name": "test_rejection_partitions[decode-422-EVIDENCE_UNAVAILABLE]",
+      "outcome": "failure"
+    },
+    {
+      "name": "test_output_failure_retains_independent_usage[refusal-MODEL_REFUSAL]",
+      "outcome": "failure"
+    },
+    {
+      "name": "test_output_failure_retains_independent_usage[invalid-INVALID_MODEL_OUTPUT]",
+      "outcome": "failure"
+    },
+    {
+      "name": "test_v2_video_actual_pts_and_incomplete_referral",
+      "outcome": "failure"
+    },
+    {
+      "name": "test_absolute_budget_and_terminal_scratch_cleanup",
+      "outcome": "failure"
+    },
+    {
+      "name": "test_application_worker_owns_wire_and_persistence",
+      "outcome": "failure"
+    },
+    {
+      "name": "test_restart_transients_consume_three_attempts_without_fallback",
+      "outcome": "failure"
+    }
+  ],
+  "preserved": [
+    {
+      "name": "test_concurrent_claims_and_recovered_stale_completion_publish_once",
+      "outcome": "pass"
+    },
+    {
+      "name": "test_obsolete_evidence_completion_is_superseded",
+      "outcome": "pass"
+    }
+  ]
+}

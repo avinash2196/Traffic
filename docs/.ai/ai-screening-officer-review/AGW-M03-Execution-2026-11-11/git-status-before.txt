@@ -1,0 +1,27 @@
+ M app.py
+ M bootstrap.py
+ M tests/conftest.py
+ M tests/test_api_endpoints.py
+ M tests/test_auth.py
+?? assessment_policy.py
+?? docs/.ai/ai-screening-officer-review/
+?? durable.py
+?? gateway.py
+?? gemini.py
+?? intake.py
+?? openai_adapter.py
+?? tests/agw_provider_child.py
+?? tests/agw_service_child.py
+?? tests/test_durable_processing.py
+?? tests/test_evidence_intake.py
+?? tests/test_gateway_openai.py
+?? tests/test_gateway_service.py
+?? tests/test_gemini_assessment.py
+?? tests/test_provider_response.py
+?? tests/test_verification_harness.py
+?? tests/verify_current_demo.py
+?? tests/verify_durable_processing.py
+?? tests/verify_gateway_openai.py
+?? tests/verify_gateway_service.py
+?? tests/verify_gemini_assessment.py
+?? tests/verify_provider_response.py

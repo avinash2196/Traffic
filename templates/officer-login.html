@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Officer Login - RoadWatch Traffic MVP</title>
+  <link rel="stylesheet" href="/static/css/base.css">
+  <link rel="stylesheet" href="/static/css/layout.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+  <link rel="stylesheet" href="/static/css/responsive.css">
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+    
+    .login-container {
+      background: white;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+      width: 100%;
+      max-width: 400px;
+    }
+    
+    .login-container h1 {
+      text-align: center;
+      margin-bottom: 1rem;
+      color: #333;
+    }
+    
+    .login-container p {
+      text-align: center;
+      color: #666;
+      margin-bottom: 2rem;
+      font-size: 0.9rem;
+    }
+    
+    .form-group input {
+      margin-bottom: 1rem;
+    }
+    
+    .info-box {
+      background: #f0f0f0;
+      padding: 1rem;
+      border-radius: 4px;
+      margin-bottom: 1.5rem;
+      font-size: 0.85rem;
+      color: #666;
+    }
+    
+    .loading { display: none; }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <h1>🚨 RoadWatch Officer</h1>
+    <p>Review and Award Violation Points</p>
+    
+    <form id="login-form">
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input 
+          type="email" 
+          id="email" 
+          name="email" 
+          placeholder="officer@example.com"
+          required
+        >
+      </div>
+      
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input 
+          type="password" 
+          id="password" 
+          name="password" 
+          placeholder="Enter your password"
+          required
+          minlength="6"
+        >
+      </div>
+      
+      <button type="submit" class="btn btn-primary btn-block">Login</button>
+      
+      <div class="loading" id="loading">
+        <p style="text-align: center; color: #666;">Logging in...</p>
+      </div>
+      
+      <hr style="margin: 2rem 0; border: none; border-top: 1px solid #ddd;">
+      
+      <p style="text-align: center; color: #666; font-size: 0.85rem;">
+        New officer? <a href="/officer-signup.html">Register here</a>
+      </p>
+      
+      <p style="text-align: center; color: #666; font-size: 0.85rem;">
+        Are you a citizen? <a href="/citizen-login.html">Login here</a>
+      </p>
+    </form>
+  </div>
+
+  <script src="/static/js/utils.js"></script>
+  <script src="/static/js/auth.js"></script>
+  <script src="/static/js/common.js"></script>
+  <script>
+    document.getElementById('login-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      
+      if (!email || !password) {
+        UI.showAlert('Please enter email and password', 'error');
+        return;
+      }
+      
+      document.getElementById('loading').style.display = 'block';
+      
+      try {
+        const response = await fetch('/api/officer/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.session_token) {
+          AUTH.setReviewerToken(data.session_token);
+          window.location.href = '/officer-queue.html';
+        } else {
+          UI.showAlert(data.error || 'Login failed', 'error');
+        }
+      } catch (err) {
+        UI.showAlert('Network error: ' + err.message, 'error');
+      } finally {
+        document.getElementById('loading').style.display = 'none';
+      }
+    });
+  </script>
+</body>
+</html>
+

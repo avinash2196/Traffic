@@ -1,0 +1,24 @@
+{
+  "single": {
+    "name": "pytest",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "0",
+    "tests": "1",
+    "time": "6.658",
+    "timestamp": "2026-11-11T18:05:58.479095-06:00",
+    "hostname": "DESKTOP-PRD6KDI"
+  },
+  "sequence": {
+    "name": "pytest",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "0",
+    "tests": "15",
+    "time": "24.162",
+    "timestamp": "2026-11-11T18:07:01.156054-06:00",
+    "hostname": "DESKTOP-PRD6KDI"
+  },
+  "source_files_unchanged": 31,
+  "carrier_absent": true
+}
