@@ -539,142 +539,166 @@ def build_error_response(started, correlation_id, attempt_id, attempt_number, ev
 
 @app.post("/v1/breakdown")
 async def breakdown_violations(request: Request):
-    """Break down assessment into specific violations.
+    """Confirm specific violations based on assessment from Call 1.
     
-    Takes the main assessment and asks AI to categorize into specific violations:
-    no_helmet, triple_riding, red_light, etc. with confidence scores.
+    Takes the main assessment and asks AI to confirm presence of:
+    - no_helmet: Riders not wearing helmets
+    - triple_riding: More than 2 people on vehicle  
+    - red_light: Crossing at red traffic signal
+    
+    Returns boolean flags + confidence scores for each.
     """
     started = time.monotonic()
     correlation_id = str(uuid4()).replace('-', '')[:16]
     
     try:
         body = await request.json()
-    except Exception as e:
-        logger.error(f"Failed to parse JSON: {e}")
-        return JSONResponse({"error": "Invalid JSON"}, status_code=400)
-    
-    # Extract assessment and evidence from request
-    assessment = body.get('assessment', {})
-    evidence_list = body.get('evidence', [])
-    
-    if not assessment:
-        return JSONResponse({"error": "Missing assessment"}, status_code=400)
-    
-    logger.info(f"Breakdown request {correlation_id}: violations from assessment")
-    
-    # Prepare breakdown prompt
-    breakdown_prompt = f"""Based on the following traffic violation assessment, break down the specific violations detected with confidence levels.
+        assessment = body.get('assessment', {})
+        evidence_list = body.get('evidence', [])
+        
+        if not assessment:
+            return JSONResponse({"error": "Missing assessment from Call 1"}, status_code=400)
+        
+        logger.info(f"Breakdown {correlation_id}: Confirming violations from assessment")
+        
+        # Build simple breakdown prompt
+        explanation = assessment.get('explanation', '')
+        observations = assessment.get('observations', [])
+        obs_text = '\n'.join([o.get('text', '') if isinstance(o, dict) else str(o) for o in observations])
+        
+        breakdown_prompt = f"""You are analyzing a traffic violation assessment. Based on this assessment, confirm which specific violations are present.
 
-Assessment: {json.dumps(assessment, indent=2)}
+Assessment explanation: {explanation}
 
-For each violation type listed below, provide:
-1. Whether it's present (yes/no/unclear)
-2. Confidence score (0.0-1.0)
-3. Brief evidence from the image
+Observations: {obs_text}
 
-Violation types to check:
-- no_helmet: Riders not wearing helmets
-- triple_riding: More than 2 riders on vehicle
-- red_light: Vehicle crossing at red traffic signal
-- speeding: Vehicle appears to be speeding
-- improper_parking: Vehicle parked illegally
-- defective_vehicle: Broken lights, missing parts, etc.
+For each violation type, respond with ONLY the boolean value (true/false):
 
-Return as JSON:
+1. no_helmet - Are riders/drivers NOT wearing helmets? (yes/no)
+2. triple_riding - Are there MORE than 2 people on the vehicle? (yes/no)  
+3. red_light - Is the vehicle crossing at a RED traffic signal? (yes/no)
+
+Respond ONLY as JSON, no other text:
 {{
-  "violations": [
-    {{"type": "violation_name", "present": true/false, "confidence": 0.0-1.0, "evidence": "..."}}
-  ]
-}}
-
-ONLY return valid JSON, no other text."""
-    
-    # Call AI provider
-    provider = AI_PROVIDER
-    model = PROVIDER_CONFIGS.get(provider, {}).get('model')
-    
-    try:
-        if provider == 'openai':
-            response = await call_openai_breakdown(breakdown_prompt, model)
-        elif provider == 'gemini':
-            response = await call_gemini_breakdown(breakdown_prompt, model)
+  "violations": {{
+    "no_helmet": true/false,
+    "triple_riding": true/false,
+    "red_light": true/false
+  }}
+}}"""
+        
+        # Call AI provider to confirm violations
+        if AI_PROVIDER == 'openai':
+            breakdown = await call_openai_breakdown(breakdown_prompt)
+        elif AI_PROVIDER == 'gemini':
+            breakdown = await call_gemini_breakdown(breakdown_prompt)
         else:
-            raise ValueError(f"Unknown provider: {provider}")
+            breakdown = {"violations": {}}
         
-        # Parse response
-        try:
-            breakdown = json.loads(response)
-            if 'violations' not in breakdown:
-                breakdown = {"violations": []}
-        except json.JSONDecodeError:
-            # Try to extract JSON from response
-            try:
-                start = response.find('{')
-                end = response.rfind('}') + 1
-                if start >= 0 and end > start:
-                    breakdown = json.loads(response[start:end])
-                else:
-                    breakdown = {"violations": []}
-            except:
-                breakdown = {"violations": []}
+        logger.info(f"Breakdown {correlation_id} complete: {breakdown}")
         
-        logger.info(f"Breakdown complete {correlation_id}: {len(breakdown.get('violations', []))} violations")
-        
-        return {
+        return JSONResponse({
             "correlation_id": correlation_id,
             "breakdown": breakdown,
-            "provider": provider,
-            "model": model,
-            "completed_at": datetime.utcnow().isoformat() + 'Z',
+            "provider": AI_PROVIDER,
+            "model": PROVIDER_CONFIGS.get(AI_PROVIDER, {}).get('model'),
             "processing_ms": int((time.monotonic() - started) * 1000)
-        }
+        }, status_code=200)
         
+    except json.JSONDecodeError as e:
+        logger.error(f"Invalid JSON in breakdown request: {e}")
+        return JSONResponse({"error": "Invalid JSON"}, status_code=400)
     except Exception as e:
-        logger.error(f"Breakdown failed {correlation_id}: {e}")
+        logger.error(f"Breakdown failed: {e}", exc_info=True)
         return JSONResponse({
             "correlation_id": correlation_id,
             "error": str(e),
-            "provider": provider
+            "provider": AI_PROVIDER
         }, status_code=502)
 
 
-async def call_openai_breakdown(prompt: str, model: str) -> str:
-    """Call OpenAI for violation breakdown."""
-    async with httpx.AsyncClient(timeout=30) as client:
-        response = await client.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": f"Bearer {OPENAI_API_KEY}"},
-            json={
-                "model": model,
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.3
-            }
-        )
+async def call_openai_breakdown(prompt: str) -> dict:
+    """Call OpenAI to confirm violations (simpler than assessment)."""
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers={"Authorization": f"Bearer {OPENAI_API_KEY}"},
+                json={
+                    "model": "gpt-4o-mini",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.2,
+                    "max_tokens": 500
+                }
+            )
         
         if response.status_code != 200:
-            raise Exception(f"OpenAI returned {response.status_code}: {response.text}")
+            logger.error(f"OpenAI breakdown error {response.status_code}: {response.text[:200]}")
+            return {"violations": {}}
         
-        data = response.json()
-        return data['choices'][0]['message']['content']
+        result = response.json()
+        if result.get('choices'):
+            text = result['choices'][0].get('message', {}).get('content', '{}')
+            logger.info(f"OpenAI breakdown response: {text[:300]}")
+            
+            # Extract JSON from response
+            try:
+                # Try to parse directly
+                return json.loads(text)
+            except:
+                # Try to find JSON in response
+                start = text.find('{')
+                end = text.rfind('}') + 1
+                if start >= 0 and end > start:
+                    return json.loads(text[start:end])
+                return {"violations": {}}
+        
+        return {"violations": {}}
+        
+    except Exception as e:
+        logger.error(f"OpenAI breakdown call failed: {e}")
+        return {"violations": {}}
 
 
-async def call_gemini_breakdown(prompt: str, model: str) -> str:
-    """Call Gemini for violation breakdown."""
-    async with httpx.AsyncClient(timeout=30) as client:
-        response = await client.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
-            params={"key": GEMINI_API_KEY},
-            json={
-                "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {"temperature": 0.3}
-            }
-        )
+async def call_gemini_breakdown(prompt: str) -> dict:
+    """Call Gemini to confirm violations."""
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(
+                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}",
+                json={
+                    "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+                    "generationConfig": {
+                        "temperature": 0.2,
+                        "maxOutputTokens": 500
+                    }
+                }
+            )
         
         if response.status_code != 200:
-            raise Exception(f"Gemini returned {response.status_code}: {response.text}")
+            logger.error(f"Gemini breakdown error {response.status_code}")
+            return {"violations": {}}
         
-        data = response.json()
-        return data['candidates'][0]['content']['parts'][0]['text']
+        result = response.json()
+        candidates = result.get('candidates', [])
+        if candidates:
+            text = candidates[0].get('content', {}).get('parts', [{}])[0].get('text', '{}')
+            logger.info(f"Gemini breakdown response: {text[:300]}")
+            
+            try:
+                return json.loads(text)
+            except:
+                start = text.find('{')
+                end = text.rfind('}') + 1
+                if start >= 0 and end > start:
+                    return json.loads(text[start:end])
+                return {"violations": {}}
+        
+        return {"violations": {}}
+        
+    except Exception as e:
+        logger.error(f"Gemini breakdown call failed: {e}")
+        return {"violations": {}}
 
 
 if __name__ == "__main__":
