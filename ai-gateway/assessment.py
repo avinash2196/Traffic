@@ -8,8 +8,8 @@ against the assessment_policy schema. No ffmpeg dependency (images only).
 import os
 from pathlib import Path
 
-# Try to load .env from script directory
-env_path = Path(__file__).resolve().parent / '.env'
+# Try to load .env from parent directory (where main config is)
+env_path = Path(__file__).resolve().parent.parent / '.env'
 if env_path.exists():
     with open(env_path) as f:
         for line in f:
