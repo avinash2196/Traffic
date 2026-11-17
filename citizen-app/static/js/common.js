@@ -54,8 +54,8 @@ function formatDate(isoDateString) {
 function formatViolation(type) {
   const labels = {
     'helmet': 'No Helmet',
-    'triple_riding': 'Triple Riding',
-    'red_light': 'Red Light',
+    'triple-riding': 'Triple Riding',
+    'red-light': 'Red Light',
   };
   return labels[type] || type;
 }
