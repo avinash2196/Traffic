@@ -56,8 +56,10 @@ async def health():
 
 # Include the real MVP app routes
 if AI_AVAILABLE:
+    from fastapi import Request
+    
     @app.post("/v1/assessments")
-    async def forward_assessment_request(request):
+    async def forward_assessment_request(request: Request):
         """Forward assessment requests to real AI providers.
         
         Expects:
