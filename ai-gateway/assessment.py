@@ -287,12 +287,22 @@ async def assess_violation(request: Request):
             # Media is sent as base64-encoded data_base64 field from the app
             if 'data_base64' in item:
                 media_items.append({
-                    'media_id': item.get('media_id'),
+                    'id': item.get('media_id'),
                     'mime_type': item.get('mime_type'),
                     'bytes': base64.b64decode(item['data_base64'])
                 })
         
-        logger.info(f"Assessment request: {correlation_id} from {provider}, media_count={len(media_items)}")
+        # Extract violation category from prompt text
+        # Format: "Assess traffic violation: <category> by vehicle..."
+        category = 'unknown'
+        if 'violation:' in prompt_text.lower():
+            parts = prompt_text.lower().split('violation:')
+            if len(parts) > 1:
+                category_text = parts[1].strip().split(' by ')[0].strip()
+                if category_text:
+                    category = category_text
+        
+        logger.info(f"Assessment request: {correlation_id} from {provider}, media_count={len(media_items)}, category={category}")
         
         # Choose provider
         if provider not in PROVIDER_CONFIGS:
@@ -322,7 +332,7 @@ async def assess_violation(request: Request):
         if assessment:
             try:
                 # Validate assessment against schema
-                valid = validate(assessment)
+                valid = validate(assessment, media_items, category)
                 if valid:
                     logger.info(f"Assessment valid, returning 200 OK: {correlation_id}")
                     response = {
