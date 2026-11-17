@@ -126,9 +126,13 @@ class JobStore:
         exhausted = retryable and code in RETRYABLE and row['attempt_count'] == 3
         base,maximum=5,300
         if row['settings_snapshot']:
-            from gateway import valid_snapshot
-            config=json.loads(row['settings_snapshot'])
-            if valid_snapshot(config): base,maximum=config['AI_RETRY_BASE_SECONDS'],config['AI_RETRY_MAX_DELAY_SECONDS']
+            try:
+                from gateway import valid_snapshot
+                config=json.loads(row['settings_snapshot'])
+                if valid_snapshot(config): base,maximum=config['AI_RETRY_BASE_SECONDS'],config['AI_RETRY_MAX_DELAY_SECONDS']
+            except (ImportError, KeyError, json.JSONDecodeError, ValueError):
+                # gateway module not available or config invalid - use defaults
+                pass
         delay=min(maximum,max(base*2**(row['attempt_count']-1),retry_after or 0))
         conn.execute('UPDATE ai_attempts SET state=?,completed_at=?,failure_code=?,billing_state=? WHERE job_id=? AND number=?', ('interrupted' if code == 'INTERRUPTED' else 'failed',now,code,billing,row['id'],row['attempt_count']))
         conn.execute('UPDATE ai_jobs SET state=?,owner=NULL,next_attempt_at=?,completed_at=?,failure_code=? WHERE id=?', ('retry-wait' if retry else 'failed',now + delay if retry else None,None if retry else now,'ATTEMPTS_EXHAUSTED' if exhausted else code,row['id']))
