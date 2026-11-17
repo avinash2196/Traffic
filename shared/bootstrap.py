@@ -202,9 +202,29 @@ class DatabaseConnection:
 db_connection: DatabaseConnection = None
 
 
-def init_database(db_path: str = "./roadwatch.db") -> DatabaseConnection:
-    """Initialize database and return connection."""
+def init_database(db_path: str = None) -> DatabaseConnection:
+    """Initialize database and return connection.
+    
+    Args:
+        db_path: Optional explicit database path. If not provided, uses DATABASE_URL env var,
+                 defaults to ../roadwatch.db (parent directory, shared by all services)
+    """
     global db_connection
+    
+    # Determine database path
+    if db_path is None:
+        # Try env variable first
+        db_path = os.getenv("DATABASE_URL", None)
+    
+    if db_path is None:
+        # Default: use parent directory so all services share one database
+        # This works because each service runs: cd <service>; python app.py
+        # So "./../../roadwatch.db" resolves to Traffic/roadwatch.db
+        db_path = "../roadwatch.db"
+    
+    # Ensure it's an absolute path for consistency
+    db_path = str(Path(db_path).resolve())
+    
     db_connection = DatabaseConnection(db_path)
     db_connection.connect()
     return db_connection
