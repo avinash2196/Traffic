@@ -3,8 +3,14 @@
 # RoadWatch Traffic MVP - All-In-One Startup Script
 # Starts all microservices, frontends, and displays a dashboard
 #
-# Usage: .\START-ALL.ps1
+# Usage: 
+#   .\START-ALL.ps1              (Normal startup, keeps existing data)
+#   .\START-ALL.ps1 -Clean       (Clean startup, deletes database and cache)
 #
+
+param(
+    [switch]$Clean = $false
+)
 
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -12,11 +18,38 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 Write-Host @"
 ================================================================================
                  ROADWATCH TRAFFIC MVP - STARTING ALL SERVICES
+"@ -ForegroundColor Cyan
+
+if ($Clean) {
+    Write-Host "                         [CLEAN MODE - DATABASE WILL BE RESET]"
+}
+
+Write-Host @"
 ================================================================================
 "@ -ForegroundColor Cyan
 
+# Step 0: Clean database if requested
+if ($Clean) {
+    Write-Host "`n[0/7] Cleaning database and cache..." -ForegroundColor Yellow
+    
+    $dbFile = "$ScriptDir\roadwatch.db"
+    if (Test-Path $dbFile) {
+        Remove-Item $dbFile -Force
+        Write-Host "      Deleted: roadwatch.db" -ForegroundColor Green
+    }
+    
+    $mediaDir = "$ScriptDir\media_store"
+    if (Test-Path $mediaDir) {
+        Remove-Item $mediaDir -Recurse -Force
+        New-Item -ItemType Directory -Path $mediaDir | Out-Null
+        Write-Host "      Cleared: media_store/" -ForegroundColor Green
+    }
+    
+    Write-Host "      Done" -ForegroundColor Green
+}
+
 # Step 1: Setup virtual environment
-Write-Host "`n[1/6] Setting up Python virtual environment..." -ForegroundColor Yellow
+Write-Host "`n[1/7] Setting up Python virtual environment..." -ForegroundColor Yellow
 if (-not (Test-Path "$ScriptDir\.venv")) {
     Write-Host "      Creating .venv..." -ForegroundColor Gray
     python -m venv "$ScriptDir\.venv"
@@ -24,11 +57,11 @@ if (-not (Test-Path "$ScriptDir\.venv")) {
 Write-Host "      Done" -ForegroundColor Green
 
 # Step 2: Verify dependencies (already installed from earlier)
-Write-Host "`n[2/6] Dependencies already installed..." -ForegroundColor Yellow
+Write-Host "`n[2/7] Dependencies already installed..." -ForegroundColor Yellow
 Write-Host "      Done" -ForegroundColor Green
 
 # Step 3: Start microservices
-Write-Host "`n[3/6] Starting microservices (ports 9001, 9002, 9003, 9004)..." -ForegroundColor Yellow
+Write-Host "`n[3/7] Starting microservices (ports 9001, 9002, 9003, 9004)..." -ForegroundColor Yellow
 
 Write-Host "      - Auth Service (9003)..." -ForegroundColor Gray
 Start-Process powershell -ArgumentList "-NoProfile -Command `"cd '$ScriptDir'; & '.\.venv\Scripts\Activate.ps1'; cd auth; python app.py`"" -NoNewWindow
@@ -53,7 +86,7 @@ Start-Sleep -Milliseconds 500
 Write-Host "      Done" -ForegroundColor Green
 
 # Step 4: Start frontends
-Write-Host "`n[4/6] Starting frontend applications..." -ForegroundColor Yellow
+Write-Host "`n[4/7] Starting frontend applications..." -ForegroundColor Yellow
 
 Write-Host "      - Citizen Frontend (3001)..." -ForegroundColor Gray
 Start-Process powershell -ArgumentList "-NoProfile -Command `"cd '$ScriptDir'; & '.\.venv\Scripts\Activate.ps1'; cd citizen-app; python app.py`"" -NoNewWindow
@@ -66,12 +99,12 @@ Start-Sleep -Milliseconds 500
 Write-Host "      Done" -ForegroundColor Green
 
 # Step 5: Wait for services to stabilize
-Write-Host "`n[5/6] Waiting for services to stabilize..." -ForegroundColor Yellow
+Write-Host "`n[5/7] Waiting for services to stabilize..." -ForegroundColor Yellow
 Start-Sleep -Seconds 15
 Write-Host "      Done" -ForegroundColor Green
 
 # Step 6: Verify services are running
-Write-Host "`n[6/6] Verifying all services..." -ForegroundColor Yellow
+Write-Host "`n[6/7] Verifying all services..." -ForegroundColor Yellow
 
 $services = @{
     "Auth Service"       = "http://127.0.0.1:9003/health"
@@ -127,6 +160,13 @@ TESTING:
 
 DATABASE:
   SQLite DB: ./roadwatch.db
+"@ -ForegroundColor Cyan
+
+if ($Clean) {
+    Write-Host "  STATUS: Database was reset for clean start" -ForegroundColor Green
+}
+
+Write-Host @"
 
 LOGS:
   Check each service window for real-time logs
