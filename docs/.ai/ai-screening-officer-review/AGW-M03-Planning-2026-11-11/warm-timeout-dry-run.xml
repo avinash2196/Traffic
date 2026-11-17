@@ -1,1 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="9.260" timestamp="2026-11-11T19:53:48.168684-06:00" hostname="DESKTOP-PRD6KDI"><testcase classname="tests.test_gateway_service" name="test_absolute_budget_and_terminal_scratch_cleanup" time="8.911" /></testsuite></testsuites>
