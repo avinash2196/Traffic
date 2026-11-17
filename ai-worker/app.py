@@ -85,17 +85,17 @@ class AIWorker:
                 await asyncio.sleep(self.poll_interval)
     
     async def process_job(self, job_id: str, report_id: str):
-        """Process a single AI analysis job"""
+        """Process a single AI analysis job by calling /v1/assessments endpoint."""
         try:
             # Claim the job
-            claim_result = self.job_store.claim(job_id, "worker", time.time())
-            if not claim_result:
+            token = self.job_store.claim(job_id, "worker", time.time())
+            if not token:
                 logger.debug(f"Could not claim job {job_id}")
                 return
             
             logger.info(f"Processing job {job_id} for report {report_id}")
             
-            # Get report details from database
+            # Get report details and media from database
             conn = sqlite3.connect(DB_PATH)
             conn.row_factory = sqlite3.Row
             
@@ -105,7 +105,7 @@ class AIWorker:
             ).fetchone()
             
             media_list = conn.execute(
-                "SELECT id, mime_type, filename FROM media WHERE report_id = ?",
+                "SELECT id, mime_type, filename, storage_path FROM media WHERE report_id = ? ORDER BY attachment_position",
                 (report_id,)
             ).fetchall()
             
@@ -113,54 +113,98 @@ class AIWorker:
             
             if not report:
                 logger.error(f"Report {report_id} not found")
-                self.job_store.fail(job_id, "report_not_found", time.time())
+                self.job_store.fail(token, "EVIDENCE_UNAVAILABLE", False, time.time())
                 return
             
-            # Prepare analysis request for AI Gateway
-            media_items = [dict(m) for m in media_list] if media_list else []
+            # Build evidence array with base64-encoded media
+            evidence = []
+            for media in media_list:
+                try:
+                    # Read media file from disk
+                    media_path = Path(media['storage_path'])
+                    if not media_path.exists():
+                        logger.warning(f"Media file not found: {media_path}")
+                        continue
+                    
+                    with open(media_path, 'rb') as f:
+                        media_bytes = f.read()
+                    
+                    # Base64 encode
+                    import base64
+                    b64_data = base64.b64encode(media_bytes).decode('utf-8')
+                    
+                    evidence.append({
+                        'media_id': media['id'],
+                        'mime_type': media['mime_type'],
+                        'data_base64': b64_data
+                    })
+                except Exception as e:
+                    logger.error(f"Error reading media {media['id']}: {e}")
+                    continue
             
-            analysis_request = {
-                "report_id": report_id,
-                "violation_type": report["violation_type"],
-                "vehicle_number": report["vehicle_number"],
-                "location": report["location"],
-                "media_items": media_items,
-                "settings": {"ai_enabled": True}
+            if not evidence:
+                logger.warning(f"No readable media for report {report_id}")
+                self.job_store.fail(token, "EVIDENCE_UNAVAILABLE", False, time.time())
+                return
+            
+            # Build proper /v1/assessments request
+            assessment_request = {
+                "correlation_id": job_id,
+                "attempt_id": job_id,
+                "attempt_number": 1,
+                "evidence_revision": 1,
+                "selection": {
+                    "provider": "openai",
+                    "request_profile_version": "1.0",
+                    "media_profile_version": "1.0"
+                },
+                "prompt": {
+                    "text": f"Assess traffic violation: {report['violation_type']} by vehicle {report['vehicle_number']} at {report['location']}",
+                    "version": "1.0",
+                    "policy_version": "1.0",
+                    "legal_reference_version": "1.0"
+                },
+                "evidence": evidence
             }
             
-            # Call AI Gateway to analyze
+            # Call AI Gateway /v1/assessments endpoint
             try:
+                headers = {
+                    "Authorization": f"Bearer {AI_GATEWAY_TOKEN}" if AI_GATEWAY_TOKEN else "Bearer demo-token"
+                }
+                
                 response = await self.client.post(
-                    f"{AI_GATEWAY_URL}/api/ai/analyze",
-                    json=analysis_request,
-                    headers={"X-Gateway-Token": AI_GATEWAY_TOKEN} if AI_GATEWAY_TOKEN else {}
+                    f"{AI_GATEWAY_URL}/v1/assessments",
+                    json=assessment_request,
+                    headers=headers,
+                    timeout=60.0
                 )
                 
                 if response.status_code == 200:
                     result = response.json()
-                    logger.info(f"✓ Job {job_id} analysis complete: {result.get('status', 'unknown')}")
+                    logger.info(f"✓ Job {job_id} assessment complete: {result.get('status', 'unknown')}")
                     
                     # Mark job as success and store result
-                    self.job_store.succeed(
-                        job_id,
-                        json.dumps(result),
+                    self.job_store.complete(
+                        token,
+                        result,
                         time.time()
                     )
                 else:
                     logger.warning(f"AI Gateway returned {response.status_code}: {response.text}")
-                    self.job_store.retry(job_id, f"gateway_error_{response.status_code}", time.time())
+                    self.job_store.fail(token, f"GATEWAY_ERROR_{response.status_code}", True, time.time())
                     
             except httpx.TimeoutException:
                 logger.warning(f"AI Gateway timeout for job {job_id}")
-                self.job_store.retry(job_id, "gateway_timeout", time.time())
+                self.job_store.fail(token, "REQUEST_TIMEOUT", True, time.time())
             except Exception as e:
                 logger.error(f"AI Gateway call failed: {e}")
-                self.job_store.retry(job_id, str(e), time.time())
+                self.job_store.fail(token, "PROCESSING_ERROR", True, time.time())
             
         except Exception as e:
             logger.error(f"Error processing job {job_id}: {e}")
             try:
-                self.job_store.fail(job_id, f"processing_error: {e}", time.time())
+                self.job_store.fail(token, "PROCESSING_ERROR", False, time.time())
             except:
                 pass
     
