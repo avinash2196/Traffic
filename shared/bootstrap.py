@@ -520,13 +520,8 @@ def deployed_app():
                            ("OIDC_AUDIENCE", audience)):
         if os.environ.get(name, expected) != expected:
             raise ValueError("Unexpected identity configuration: " + name)
-    from controls_operator import deployed_components
-    if os.environ.get("CONTROLS_RUNTIME", "") not in ("", "1"):
-        raise ValueError("Unexpected controls runtime configuration")
-    if not os.environ.get("CONTROLS_RUNTIME", ""):
-        return create_app(audience=audience, expose_me=role == "reporting")
-    store, consumer = deployed_components(role)
-    return create_controls_app(service_role=role, store=store, consumer=consumer, clock=time.time)
+    # Controls runtime is not used in MVP
+    return create_app(audience=audience, expose_me=role == "reporting")
 
 
 app = deployed_app()
