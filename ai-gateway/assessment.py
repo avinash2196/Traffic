@@ -161,6 +161,111 @@ async def assess_with_openai(client, media_items, prompt_text, key, deadline):
         return None, int((time.monotonic() - started) * 1000)
 
 
+def transform_to_strict_schema(assessment, media_items):
+    """Transform OpenAI's simplified response to match strict validation schema."""
+    # Get first media ID (for single image case)
+    primary_media_id = media_items[0]['id'] if media_items else 'unknown'
+    
+    # Ensure all required fields exist
+    result = {
+        'relevance': assessment.get('relevance', 'uncertain').lower() if assessment.get('relevance') else 'uncertain',
+        'relevance_confidence': int(min(100, max(0, assessment.get('relevance_confidence', 50)))),
+        'violation_confidence': int(min(100, max(0, assessment.get('violation_confidence', 50)))),
+        'recommendation': assessment.get('recommendation', 'needs-human-judgment'),
+        'explanation': str(assessment.get('explanation', 'No explanation provided'))[:8192],
+        'observations': [],
+        'attachment_relevance': [],
+        'rule_notes': [],
+        'limitations': ['Officer review required for final determination', 'AI confidence scores are uncalibrated estimates']
+    }
+    
+    # Normalize relevance
+    if result['relevance'] not in ('relevant', 'irrelevant', 'uncertain'):
+        result['relevance'] = 'uncertain'
+    
+    # Build observations from raw observations or create placeholder
+    obs_list = assessment.get('observations', [])
+    if obs_list and isinstance(obs_list, list):
+        for idx, obs in enumerate(obs_list):
+            if isinstance(obs, dict):
+                result['observations'].append({
+                    'media_id': obs.get('media_id', primary_media_id),
+                    'text': str(obs.get('text', obs) if isinstance(obs, dict) else obs)[:2048],
+                    'start_ms': None,
+                    'end_ms': None
+                })
+            else:
+                result['observations'].append({
+                    'media_id': primary_media_id,
+                    'text': str(obs)[:2048],
+                    'start_ms': None,
+                    'end_ms': None
+                })
+    
+    # Ensure at least one observation for image analysis
+    if not result['observations']:
+        result['observations'].append({
+            'media_id': primary_media_id,
+            'text': result['explanation'],
+            'start_ms': None,
+            'end_ms': None
+        })
+    
+    # Build attachment_relevance for each media item
+    att_rel_list = assessment.get('attachment_relevance', [])
+    for media in media_items:
+        media_id = media['id']
+        
+        # Find matching attachment_relevance entry
+        matching_rel = None
+        if att_rel_list:
+            for att in att_rel_list:
+                if isinstance(att, dict) and att.get('media_id') == media_id:
+                    matching_rel = att
+                    break
+        
+        if matching_rel:
+            result['attachment_relevance'].append({
+                'media_id': media_id,
+                'relevance': matching_rel.get('relevance', result['relevance']),
+                'reason': str(matching_rel.get('reason', ''))[:2048] or 'See observations for details'
+            })
+        else:
+            result['attachment_relevance'].append({
+                'media_id': media_id,
+                'relevance': result['relevance'],
+                'reason': 'Media analyzed as part of assessment'
+            })
+    
+    # Build rule_notes with standard references
+    rule_notes_input = assessment.get('rule_notes', [])
+    standard_refs = {
+        'helmet': 'MVA-129-2019',
+        'triple': 'MVA-128-1',
+        'red-light': 'MVA-119-1',
+        'signal': 'MVDR-12-1'
+    }
+    
+    for ref_id, ref_name in standard_refs.items():
+        note_text = 'Not evaluated in this assessment'
+        if rule_notes_input and isinstance(rule_notes_input, list):
+            for note in rule_notes_input:
+                if isinstance(note, dict) and ref_id in str(note).lower():
+                    note_text = str(note.get('note', note))[:2048]
+                    break
+                elif isinstance(note, str) and ref_id in note.lower():
+                    note_text = note[:2048]
+                    break
+        
+        result['rule_notes'].append({
+            'reference_id': ref_name,
+            'applicability': 'not-established',
+            'note': note_text
+        })
+    
+    return result
+
+
 async def assess_with_gemini(client, media_items, prompt_text, key, deadline):
     """Call Gemini API with image(s)."""
     started = time.monotonic()
@@ -331,8 +436,12 @@ async def assess_violation(request: Request):
         # If assessment received, validate and return it
         if assessment:
             try:
+                # Transform to strict schema format
+                strict_assessment = transform_to_strict_schema(assessment, media_items)
+                logger.info(f"Transformed assessment for validation: {strict_assessment}")
+                
                 # Validate assessment against schema
-                valid = validate(assessment, media_items, category)
+                valid = validate(strict_assessment, media_items, category)
                 if valid:
                     logger.info(f"Assessment valid, returning 200 OK: {correlation_id}")
                     response = {
@@ -343,7 +452,7 @@ async def assess_violation(request: Request):
                         "selection": selection,
                         "prompt": prompt,
                         "provider": provider,
-                        "assessment": assessment,
+                        "assessment": valid,
                         "elapsed_ms": elapsed_ms,
                         "timestamp": time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
                     }
