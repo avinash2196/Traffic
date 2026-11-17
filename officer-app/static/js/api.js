@@ -1,6 +1,22 @@
 // API Client Utilities
 // For MVP: Call individual backend services directly
-const API_BASE = 'http://127.0.0.1:9003/api';
+
+// Get API URL for endpoint
+let API_BASE = 'http://127.0.0.1:9002/api'; // Default fallback
+
+// Load config from frontend server
+async function loadAPIConfig() {
+  try {
+    const response = await fetch('/config');
+    const config = await response.json();
+    API_BASE = `${config.api.officer}/api`;
+  } catch (err) {
+    console.warn('Failed to load config, using default API_BASE:', err);
+  }
+}
+
+// Initialize config on script load
+loadAPIConfig();
 
 // Polling configuration
 const POLL_INTERVAL_MS = 30000; // 30 seconds
