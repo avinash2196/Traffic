@@ -428,9 +428,148 @@ def build_error_response(started, correlation_id, attempt_id, attempt_number, ev
 
 
 
+@app.post("/v1/breakdown")
+async def breakdown_violations(request: Request):
+    """Break down assessment into specific violations.
+    
+    Takes the main assessment and asks AI to categorize into specific violations:
+    no_helmet, triple_riding, red_light, etc. with confidence scores.
+    """
+    started = time.monotonic()
+    correlation_id = str(uuid4()).replace('-', '')[:16]
+    
+    try:
+        body = await request.json()
+    except Exception as e:
+        logger.error(f"Failed to parse JSON: {e}")
+        return JSONResponse({"error": "Invalid JSON"}, status_code=400)
+    
+    # Extract assessment and evidence from request
+    assessment = body.get('assessment', {})
+    evidence_list = body.get('evidence', [])
+    
+    if not assessment:
+        return JSONResponse({"error": "Missing assessment"}, status_code=400)
+    
+    logger.info(f"Breakdown request {correlation_id}: violations from assessment")
+    
+    # Prepare breakdown prompt
+    breakdown_prompt = f"""Based on the following traffic violation assessment, break down the specific violations detected with confidence levels.
+
+Assessment: {json.dumps(assessment, indent=2)}
+
+For each violation type listed below, provide:
+1. Whether it's present (yes/no/unclear)
+2. Confidence score (0.0-1.0)
+3. Brief evidence from the image
+
+Violation types to check:
+- no_helmet: Riders not wearing helmets
+- triple_riding: More than 2 riders on vehicle
+- red_light: Vehicle crossing at red traffic signal
+- speeding: Vehicle appears to be speeding
+- improper_parking: Vehicle parked illegally
+- defective_vehicle: Broken lights, missing parts, etc.
+
+Return as JSON:
+{{
+  "violations": [
+    {{"type": "violation_name", "present": true/false, "confidence": 0.0-1.0, "evidence": "..."}}
+  ]
+}}
+
+ONLY return valid JSON, no other text."""
+    
+    # Call AI provider
+    provider = AI_PROVIDER
+    model = PROVIDER_CONFIGS.get(provider, {}).get('model')
+    
+    try:
+        if provider == 'openai':
+            response = await call_openai_breakdown(breakdown_prompt, model)
+        elif provider == 'gemini':
+            response = await call_gemini_breakdown(breakdown_prompt, model)
+        else:
+            raise ValueError(f"Unknown provider: {provider}")
+        
+        # Parse response
+        try:
+            breakdown = json.loads(response)
+            if 'violations' not in breakdown:
+                breakdown = {"violations": []}
+        except json.JSONDecodeError:
+            # Try to extract JSON from response
+            try:
+                start = response.find('{')
+                end = response.rfind('}') + 1
+                if start >= 0 and end > start:
+                    breakdown = json.loads(response[start:end])
+                else:
+                    breakdown = {"violations": []}
+            except:
+                breakdown = {"violations": []}
+        
+        logger.info(f"Breakdown complete {correlation_id}: {len(breakdown.get('violations', []))} violations")
+        
+        return {
+            "correlation_id": correlation_id,
+            "breakdown": breakdown,
+            "provider": provider,
+            "model": model,
+            "completed_at": datetime.utcnow().isoformat() + 'Z',
+            "processing_ms": int((time.monotonic() - started) * 1000)
+        }
+        
+    except Exception as e:
+        logger.error(f"Breakdown failed {correlation_id}: {e}")
+        return JSONResponse({
+            "correlation_id": correlation_id,
+            "error": str(e),
+            "provider": provider
+        }, status_code=502)
+
+
+async def call_openai_breakdown(prompt: str, model: str) -> str:
+    """Call OpenAI for violation breakdown."""
+    async with httpx.AsyncClient(timeout=30) as client:
+        response = await client.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers={"Authorization": f"Bearer {OPENAI_API_KEY}"},
+            json={
+                "model": model,
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.3
+            }
+        )
+        
+        if response.status_code != 200:
+            raise Exception(f"OpenAI returned {response.status_code}: {response.text}")
+        
+        data = response.json()
+        return data['choices'][0]['message']['content']
+
+
+async def call_gemini_breakdown(prompt: str, model: str) -> str:
+    """Call Gemini for violation breakdown."""
+    async with httpx.AsyncClient(timeout=30) as client:
+        response = await client.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+            params={"key": GEMINI_API_KEY},
+            json={
+                "contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {"temperature": 0.3}
+            }
+        )
+        
+        if response.status_code != 200:
+            raise Exception(f"Gemini returned {response.status_code}: {response.text}")
+        
+        data = response.json()
+        return data['candidates'][0]['content']['parts'][0]['text']
+
+
 if __name__ == "__main__":
     import uvicorn
-    logger.info(f"Starting AI Gateway MVP on http://127.0.0.1:9999")
-    logger.info(f"  Provider: {AI_PROVIDER}")
-    logger.info(f"  Gateway Token: {AI_GATEWAY_TOKEN[:10]}..." if AI_GATEWAY_TOKEN else "  Gateway Token: NOT SET")
-    uvicorn.run(app, host="127.0.0.1", port=9999, log_level="info")
+    from datetime import datetime
+    logger.info(f"✓ AI Gateway Assessment Service (real Gemini/OpenAI) loaded successfully")
+    uvicorn.run(app, host="127.0.0.1", port=9004, log_level="info")

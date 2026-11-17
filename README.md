@@ -51,6 +51,7 @@ All documentation is in the `docs/` folder:
 ✅ Two-tier authentication (JWT + bcrypt)  
 ✅ Audit trail (immutable event log)  
 ✅ Point calculation (helmet=2, triple=3, red-light=3)  
+✅ Real AI assessment (OpenAI/Gemini with async background processing)  
 ✅ Swagger API docs (`/api/docs`)  
 
 ---
@@ -171,7 +172,6 @@ See `docs/API-REQUEST-RESPONSE-REFERENCE.md` for full details.
 - SQLite only (PostgreSQL in Phase 2)
 - No real OIDC (demo tokens in MVP)
 - No cloud storage (local disk only)
-- No AI screening (manual review)
 - No push notifications
 - No multi-language
 

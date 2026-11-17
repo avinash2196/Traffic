@@ -253,13 +253,12 @@ OTEL_EXPORTER_OTLP_PROTO_HTTP_ENDPOINT=optional  # For telemetry export
 1. **SQLite only** — Works for single-server deployments; PostgreSQL needed for multi-region
 2. **Local storage only** — Media stored on disk; cloud storage in Phase 2
 3. **No real OIDC** — Uses demo token; real OIDC in Phase 2
-4. **No AI screening** — Requires OpenAI integration in Phase 2
-5. **No rate limiting** — Vulnerable to abuse; add in Phase 2
-6. **No notifications** — Citizens/officers must refresh manually
-7. **No multi-language** — English only
-8. **No mobile app** — Web-only (responsive design works on mobile)
-9. **No audit logging** — No external logging system; Phase 2
-10. **No backup strategy** — Manual backups required; Phase 2
+4. **No rate limiting** — Vulnerable to abuse; add in Phase 2
+5. **No notifications** — Citizens/officers must refresh manually
+6. **No multi-language** — English only
+7. **No mobile app** — Web-only (responsive design works on mobile)
+8. **No external audit logging** — Uses in-database event log; external logging in Phase 2
+9. **No backup strategy** — Manual backups required; Phase 2
 
 ---
 
@@ -270,11 +269,11 @@ OTEL_EXPORTER_OTLP_PROTO_HTTP_ENDPOINT=optional  # For telemetry export
 - Redis caching for queue performance
 - Real OIDC integration (Azure AD / Google)
 - Rate limiting and DDoS protection
-- Audit logging to external system
+- External audit logging (Datadog / Splunk)
 - Secrets management (HashiCorp Vault)
 
 ### Phase 2B: Feature Expansion (3 weeks)
-- AI-powered evidence screening (OpenAI GPT-4V)
+- Advanced AI assessment features (confidence thresholds, appeal workflow)
 - Multi-language UI (Hindi, English, Regional)
 - Push notifications for status updates
 - Advanced reporting and analytics

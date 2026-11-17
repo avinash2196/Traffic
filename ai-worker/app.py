@@ -181,15 +181,45 @@ class AIWorker:
                 )
                 
                 if response.status_code == 200:
-                    result = response.json()
-                    logger.info(f"✓ Job {job_id} assessment complete: {result.get('status', 'unknown')}")
+                    assessment_result = response.json()
+                    logger.info(f"✓ Job {job_id} assessment complete")
                     
-                    # Mark job as success and store result
-                    self.job_store.complete(
-                        token,
-                        result,
-                        time.time()
-                    )
+                    # Second call: Break down violations
+                    breakdown_request = {
+                        "assessment": assessment_result.get('assessment', {}),
+                        "evidence": evidence
+                    }
+                    
+                    try:
+                        breakdown_response = await self.client.post(
+                            f"{AI_GATEWAY_URL}/v1/breakdown",
+                            json=breakdown_request,
+                            headers=headers,
+                            timeout=60.0
+                        )
+                        
+                        if breakdown_response.status_code == 200:
+                            breakdown_result = breakdown_response.json()
+                            logger.info(f"✓ Job {job_id} breakdown complete: {len(breakdown_result.get('breakdown', {}).get('violations', []))} violations")
+                            
+                            # Combine both results
+                            final_result = {
+                                "assessment": assessment_result.get('assessment'),
+                                "breakdown": breakdown_result.get('breakdown'),
+                                "correlation_id": assessment_result.get('correlation_id'),
+                                "assessment_time_ms": assessment_result.get('processing_ms'),
+                                "breakdown_time_ms": breakdown_result.get('processing_ms')
+                            }
+                            
+                            # Mark job as success with combined result
+                            self.job_store.complete(token, final_result, time.time())
+                        else:
+                            logger.warning(f"Breakdown returned {breakdown_response.status_code}, storing assessment only")
+                            self.job_store.complete(token, assessment_result, time.time())
+                            
+                    except Exception as e:
+                        logger.warning(f"Breakdown failed {e}, storing assessment only")
+                        self.job_store.complete(token, assessment_result, time.time())
                 else:
                     logger.warning(f"AI Gateway returned {response.status_code}: {response.text}")
                     self.job_store.fail(token, f"GATEWAY_ERROR_{response.status_code}", True, time.time())

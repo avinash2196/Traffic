@@ -24,8 +24,9 @@
 | 9 | M7: DOCKER & DEPLOYMENT | OTHER | ✅ DONE | `59af9ef` | ✓ Dockerfile, start.sh, start-windows.ps1 |
 | 10 | M8: CITIZEN SIGNUP & VERIFIED LOGIN | GREEN | ✅ DONE | `6a8bc10` | ✓ 23/23 tests PASS, JWT auth implemented |
 | 11 | M9: OFFICER AUTH & CITIZEN MEDIA DISPLAY | GREEN | ✅ DONE | `a6967c8` | ✓ Two-tier auth, media endpoints, citizen detail view |
+| 12 | M10: AI SCREENING — REAL AI GATEWAY INTEGRATION | OTHER | ✅ DONE | TBD | ✓ ai-gateway service, ai-worker background job, real OpenAI assessments |
 
-**Progress:** 11/11 milestones complete (100%) ✅ MVP FULL FEATURE COMPLETE | **All code committed**
+**Progress:** 12/12 milestones complete (100%) ✅ MVP FULL FEATURE COMPLETE PLUS AI SCREENING | **All code committed**
 
 ---
 
@@ -33,7 +34,7 @@
 
 **Project:** RoadWatch — India-focused traffic evidence reporting MVP  
 **Scope:** Complete end-to-end workflow: citizen upload → authority review → provisional points  
-**Vision:** Modular monolith (FastAPI) with OIDC identity, event-driven state machine, and optional AI screening  
+**Vision:** Modular monolith (FastAPI) with OIDC identity, event-driven state machine, and real AI-powered evidence screening via AI Gateway  
 **Constraints:** Local-only for MVP (SQLite, local file storage); production evolution outlined  
 
 ### Must-Have Features (MVP Scope)
@@ -45,13 +46,13 @@
 6. **SHA-256 Deduplication** — Binary hash-based duplicate detection
 7. **Evidence Export** — Reviewer ZIP with original file + hash + timeline
 8. **Audit Trail** — Immutable event log of all status changes
-9. **Deployable** — Docker image, Windows/Mac/Linux local startup, Swagger API
+9. **AI Screening** — Real OpenAI-powered assessments via AI Gateway (background worker, evidence-based decision support)
+10. **Deployable** — Docker image, Windows/Mac/Linux local startup, Swagger API
 
 ### Out of Scope (Documented for Production Roadmap)
 - Real OIDC integration (demo token only for MVP)
 - PostgreSQL (SQLite for MVP; PostgreSQL documented for scale)
 - Real police/VAHAN/e-challan integration (demo-only)
-- AI screening (optional; requires OpenAI key)
 - Multi-region or high-availability
 - User management beyond fixed demo token
 - Payment/redemption
@@ -106,7 +107,7 @@
 **Question:** Which violation types are highest priority for pilot? (helmet, triple-riding, red-light, speeding, etc.)
 
 **Recommendation:** Start with helmet (simplest detection), add triple-riding and red-light in Phase 2  
-**Impact:** Affects provisional points, AI screening focus, test case design  
+**Impact:** Affects provisional points, evidence assessment strategy, test case design, background job architecture  
 **Blocking Until:** Stakeholder prioritization
 
 ---
@@ -342,13 +343,65 @@
 
 ---
 
+#### M10: AI SCREENING — REAL AI GATEWAY INTEGRATION (Duration: 2 days)
+**Type:** OTHER (background service)  
+**Dependency:** M7 (deployment works), M4.2 (API endpoints exist)  
+**Deliverable:** AI-powered evidence assessment via OpenAI, integrated with background worker job queue
+
+**Architecture:**
+- **AI Gateway Service** (`ai-gateway/app.py`) — Domain service for all AI assessment calls
+  - Endpoint: `POST /v1/assessments`
+  - Accepts evidence (media files base64-encoded), violation context, prompt
+  - Calls OpenAI GPT-4o-mini with structured prompt for traffic violation assessment
+  - Returns assessment result with violation confidence, evidence quality, recommended action
+  - No mocking — all assessments are real AI calls
+
+- **Background Worker** (`ai-worker/app.py`) — Async job processor
+  - Polls SQLite `ai_jobs` table for pending jobs (every 5 seconds)
+  - Fetches report media from disk storage
+  - Builds assessment request with violation type, vehicle number, location, evidence
+  - Calls AI Gateway `/v1/assessments` endpoint
+  - Stores result in database (append-only event trail)
+  - Implements retry logic (up to 3 attempts) with exponential backoff
+
+- **Database Schema** — New tables for job tracking
+  - `ai_jobs` (id, report_id, state, result, attempt_count, next_attempt_at)
+  - `ai_assessments` (id, job_id, assessment_result JSON)
+  - Integration with existing `events` table for immutable audit trail
+
+**Configuration:**
+- `AI_GATEWAY_URL` env var (default: `http://127.0.0.1:9004`)
+- `AI_GATEWAY_TOKEN` env var (optional, defaults to "demo-token")
+- `OPENAI_API_KEY` env var (required for real OpenAI; mocked locally if not set)
+- `OPENAI_MODEL` env var (default: "gpt-4o-mini")
+
+**Workflow:**
+1. Citizen submits report → Report status = `submitted`
+2. API creates `ai_jobs` entry with state=`pending`
+3. Background worker polls every 5 seconds
+4. Worker claims job, reads media from disk, calls AI Gateway
+5. AI Gateway calls OpenAI with evidence + prompt
+6. Result stored in database; event appended
+7. Report status transitions → `screening-complete`
+8. Officer sees assessment result in queue (if assessment recommends approval)
+
+**Definition of Done:**
+- AI Gateway service runs independently on port 9004
+- Background worker polls and processes jobs correctly
+- Database migrations create `ai_jobs` and `ai_assessments` tables
+- End-to-end: citizen report → AI assessment → officer queue
+- Error handling: retries, timeouts, missing media handled gracefully
+- Real OpenAI calls work (or mock if API key not set)
+- All services documented in README with startup instructions
+
+---
+
 ### Phase 2: Polish & Testing (Stretch Goals)
 **Duration:** 1–2 weeks (if time permits; not blocking)
 
-- #### M8: FULL TEST COVERAGE — Unit + integration tests for all endpoints
-- #### M9: OPENAI INTEGRATION — Optional AI screening (requires API key)
-- #### M10: OBSERVABILITY — OpenTelemetry logging, metrics, traces
-- #### M11: ERROR HANDLING & RECOVERY — Graceful degradation, retry logic
+- #### M11: FULL TEST COVERAGE — Unit + integration tests for all endpoints
+- #### M12: OBSERVABILITY — OpenTelemetry logging, metrics, traces
+- #### M13: ERROR HANDLING & RECOVERY — Graceful degradation, retry logic
 
 ---
 
