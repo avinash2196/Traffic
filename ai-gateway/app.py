@@ -1,11 +1,20 @@
+"""AI Gateway Service - Routes assessment requests to real AI providers (Gemini/OpenAI).
+
+This service:
+1. Receives assessment requests at /v1/assessments
+2. Routes them to Gemini or OpenAI APIs
+3. Returns structured assessment results
+
+No mocking - all assessments are real AI calls.
+"""
+
 import sys
 from pathlib import Path
 
 # Add parent directory to path to find shared modules
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from fastapi import FastAPI, Request, HTTPException
-from pydantic import BaseModel
+from fastapi import FastAPI
 import os
 from dotenv import load_dotenv
 import logging
@@ -17,67 +26,54 @@ load_dotenv(env_path)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Import AI gateway assessment functions
+# Import real AI gateway assessment
 try:
-    from ai_gateway_mvp import assess_violation
-    logger.info("✓ AI Gateway MVP loaded successfully")
+    from assessment import app as assessment_app, assess_violation
+    logger.info("✓ AI Gateway Assessment Service (real Gemini/OpenAI) loaded successfully")
     AI_AVAILABLE = True
 except ImportError as e:
-    logger.warning(f"Could not import AI modules: {e}")
+    logger.error(f"Could not import Assessment Service: {e}")
     AI_AVAILABLE = False
     assess_violation = None
 
+# Create app - use the MVP app directly (which has /v1/assessments endpoint)
 app = FastAPI(title="RoadWatch AI Gateway")
 
-class AnalyzeRequest(BaseModel):
-    report_id: str
-    media_items: list = None
-    settings: dict = None
-
-@app.post("/api/ai/analyze")
-async def analyze_report(body: AnalyzeRequest):
-    """Analyze report with AI assessment"""
-    if not AI_AVAILABLE:
-        raise HTTPException(status_code=503, detail="AI service unavailable")
-    
-    try:
-        # Simple AI assessment - just return a mock assessment for MVP
-        # TODO: Convert to real assess_violation when request format is aligned
-        result = {
-            "report_id": body.report_id,
-            "status": "assessed",
-            "assessment": {
-                "relevance": "relevant",
-                "violation_confidence": 0.85,
-                "recommendation": "award-points",
-                "explanation": "Evidence appears to support the violation claim",
-                "observations": []
-            },
-            "timestamp": str(__import__('datetime').datetime.utcnow().isoformat())
-        }
-        return result
-    except Exception as e:
-        logger.error(f"AI analysis error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/api/ai/status")
-async def ai_status():
-    """Get AI gateway status"""
-    return {
-        "status": "ready" if AI_AVAILABLE else "unavailable",
-        "providers": {
-            "openai": os.getenv("OPENAI_API_KEY") is not None,
-            "gemini": os.getenv("GEMINI_API_KEY") is not None
-        }
-    }
-
+# Mount the real MVP assessment endpoint
 @app.get("/health")
 async def health():
+    """Health check - confirms AI Gateway is running."""
     return {
         "status": "healthy",
         "service": "ai-gateway",
-        "ai_available": AI_AVAILABLE
+        "assessment_endpoint": "/v1/assessments",
+        "ai_available": AI_AVAILABLE,
+        "providers": {
+            "openai": bool(os.getenv("OPENAI_API_KEY")),
+            "gemini": bool(os.getenv("GEMINI_API_KEY"))
+        }
     }
+
+# Include the real MVP app routes
+if AI_AVAILABLE:
+    @app.post("/v1/assessments")
+    async def forward_assessment_request(request):
+        """Forward assessment requests to real AI providers.
+        
+        Expects:
+        - Authorization: Bearer <token>
+        - Body with:
+          - correlation_id
+          - attempt_id
+          - attempt_number
+          - evidence_revision
+          - selection (provider: openai|gemini)
+          - prompt (text, version)
+          - evidence (array with media_id, mime_type, data_base64)
+        
+        Returns real AI assessment from Gemini or OpenAI.
+        """
+        return await assess_violation(request)
 
 if __name__ == "__main__":
     import uvicorn
