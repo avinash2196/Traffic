@@ -214,12 +214,14 @@
           });
         }
 
-        // Auto-refresh every 30 seconds
-        setInterval(() => {
-          if (reportId) {
-            loadReport();
-          }
-        }, API.POLL_INTERVAL_MS);
+        // Auto-refresh every 30 seconds only if report is NOT in a terminal state
+        if (report.status !== 'approved' && report.status !== 'rejected' && report.status !== 'dismissed') {
+          setInterval(() => {
+            if (reportId) {
+              loadReport();
+            }
+          }, API.POLL_INTERVAL_MS);
+        }
     }
   </script>
 </body>
