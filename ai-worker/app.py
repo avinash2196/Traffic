@@ -199,12 +199,12 @@ class AIWorker:
                 self.job_store.fail(token, "REQUEST_TIMEOUT", True, time.time())
             except Exception as e:
                 logger.error(f"AI Gateway call failed: {e}")
-                self.job_store.fail(token, "PROCESSING_ERROR", True, time.time())
+                self.job_store.fail(token, "GATEWAY_BUSY", True, time.time())
             
         except Exception as e:
             logger.error(f"Error processing job {job_id}: {e}")
             try:
-                self.job_store.fail(token, "PROCESSING_ERROR", False, time.time())
+                self.job_store.fail(token, "GATEWAY_BUSY", True, time.time())
             except:
                 pass
     
