@@ -120,7 +120,7 @@ $frontendEnv = @{
 
 try {
     # 1. Start AI Gateway
-    Start-Service -Name "AI Gateway Service" -Port 9999 -Env $aiGatewayEnv -ScriptBlock {
+    Start-Service -Name "AI Gateway Service" -Port 9004 -Env $aiGatewayEnv -ScriptBlock {
         cd $pwd
         if (-Not (Test-Path .venv)) {
             Write-Host "Installing virtual environment..." -ForegroundColor Yellow
@@ -131,7 +131,8 @@ try {
         Write-Host ""
         Write-Host "Starting AI Gateway Service..." -ForegroundColor Green
         Write-Host ""
-        python ai_gateway_mvp.py
+        cd ai-gateway
+        python -m uvicorn app:app --host 127.0.0.1 --port 9004
     }
     
     Start-Sleep -Seconds 3
@@ -169,7 +170,7 @@ Open in browser:
   Citizen Portal: http://127.0.0.1:3000
   Officer Portal: http://127.0.0.1:3000/authority
   
-AI Gateway:     http://127.0.0.1:9999 (internal)
+AI Gateway:     http://127.0.0.1:9004 (internal)
 
 Press Ctrl+C to stop this orchestrator. All services will remain running.
 Use the individual service windows to view logs or stop specific services.

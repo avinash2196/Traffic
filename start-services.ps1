@@ -99,9 +99,11 @@ Read-Host 'Press Enter to close this window'
 if ($Gateway) {
     $gwCmd = {
         Write-Host "Starting AI Gateway Service..." -ForegroundColor Yellow
-        & $python ai_gateway_mvp.py
+        Push-Location ai-gateway
+        & $python -m uvicorn app:app --host 127.0.0.1 --port 9004
+        Pop-Location
     }
-    Start-ServiceWindow -Name "AI Gateway" -Port 9999 -Command $gwCmd
+    Start-ServiceWindow -Name "AI Gateway" -Port 9004 -Command $gwCmd
 }
 
 if ($Backend) {

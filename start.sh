@@ -71,7 +71,7 @@ echo "🚀 Starting RoadWatch Traffic MVP..."
 echo ""
 echo "Configuration loaded:"
 echo "  API: http://${FASTAPI_HOST:-127.0.0.1}:${FASTAPI_PORT:-8000}"
-echo "  Gateway: http://${AI_GATEWAY_URL:-http://127.0.0.1:9999}"
+echo "  Gateway: http://${AI_GATEWAY_URL:-http://127.0.0.1:9004}"
 echo ""
 echo "📍 API available at: http://127.0.0.1:8000"
 echo "📊 Documentation at: http://127.0.0.1:8000/api/docs"
@@ -79,9 +79,11 @@ echo "ℹ️  Press Ctrl+C to stop"
 echo ""
 
 # Start AI Gateway in background
-echo "🤖 Starting AI Gateway..."
-python ai_gateway_mvp.py > gateway.log 2>&1 &
+echo "🤖 Starting AI Gateway (port 9004)..."
+cd ai-gateway
+python -m uvicorn app:app --host 127.0.0.1 --port 9004 > ../gateway.log 2>&1 &
 GATEWAY_PID=$!
+cd ..
 
 # Give gateway time to start
 sleep 2

@@ -123,8 +123,10 @@ else {
 Write-Host ""
 
 # Start AI Gateway in background
-Write-Host "🤖 Starting AI Gateway on port $($env:AI_GATEWAY_PORT)..." -ForegroundColor Cyan
-$gatewayJob = Start-Process -FilePath python -ArgumentList "ai_gateway_mvp.py" -NoNewWindow -PassThru -ErrorAction SilentlyContinue
+Write-Host "🤖 Starting AI Gateway on port 9004..." -ForegroundColor Cyan
+Push-Location ai-gateway
+$gatewayJob = Start-Process -FilePath python -ArgumentList "-m", "uvicorn", "app:app", "--host", "127.0.0.1", "--port", "9004" -NoNewWindow -PassThru -ErrorAction SilentlyContinue
+Pop-Location
 Write-Host "✓ AI Gateway started (PID: $($gatewayJob.Id))" -ForegroundColor Green
 
 # Give gateway time to start
@@ -140,7 +142,7 @@ Write-Host ""
 Write-Host "Configuration:" -ForegroundColor Yellow
 Write-Host "  API Host: $($env:FASTAPI_HOST)" -ForegroundColor White
 Write-Host "  API Port: $($env:FASTAPI_PORT)" -ForegroundColor White
-Write-Host "  Gateway URL: $($env:AI_GATEWAY_URL)" -ForegroundColor White
+Write-Host "  Gateway URL: http://127.0.0.1:9004" -ForegroundColor White
 Write-Host ""
 Write-Host "Web Interface:" -ForegroundColor Yellow
 Write-Host "  Citizen Portal: http://127.0.0.1:$($env:FASTAPI_PORT)/citizen-login.html" -ForegroundColor White

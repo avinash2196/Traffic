@@ -66,8 +66,8 @@ echo Initializing database...
 python bootstrap.py
 
 REM Start AI Gateway in separate window
-echo Starting AI Gateway on port 9999...
-start "RoadWatch - AI Gateway" python ai_gateway_mvp.py
+echo Starting AI Gateway on port 9004...
+start "RoadWatch - AI Gateway" cmd /k "cd ai-gateway && python -m uvicorn app:app --host 127.0.0.1 --port 9004"
 
 REM Wait for gateway to start
 timeout /t 3 /nobreak
