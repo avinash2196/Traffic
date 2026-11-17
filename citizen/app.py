@@ -63,8 +63,9 @@ async def lifespan(app: FastAPI):
     """Handle startup and shutdown for citizen API."""
     logger.info("🚀 CITIZEN API STARTUP: Initializing citizen-api (port 9002)...")
     try:
-        db = init_database("./roadwatch.db")
-        logger.info(f"✓ Database initialized: ./roadwatch.db")
+        db_path = os.getenv("DATABASE_URL", "../roadwatch.db")
+        db = init_database(db_path)
+        logger.info(f"✓ Database initialized: {db_path}")
         app.state.db = db
         # Initialize AI settings (empty for MVP)
         app.state.ai_settings = {

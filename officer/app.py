@@ -58,8 +58,9 @@ async def lifespan(app: FastAPI):
     """Handle startup and shutdown for officer API."""
     logger.info("🚀 OFFICER API STARTUP: Initializing officer-api (port 8002)...")
     try:
-        db = init_database("./roadwatch.db")
-        logger.info(f"✓ Database initialized: ./roadwatch.db")
+        db_path = os.getenv("DATABASE_URL", "../roadwatch.db")
+        db = init_database(db_path)
+        logger.info(f"✓ Database initialized: {db_path}")
         app.state.db = db
     except Exception as e:
         logger.error(f"✗ Startup failed: {e}", exc_info=True)

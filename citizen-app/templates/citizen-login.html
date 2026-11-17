@@ -131,11 +131,13 @@
         
         if (response.ok) {
           const data = await response.json();
-          AUTH.setCitizenId(data.citizen_id);
-          UI.showAlert('Login successful! Redirecting...', 'success');
+          const citizenId = data.citizen_id;
+          AUTH.setCitizenId(citizenId);
+          UI.showToast(`Welcome, ${citizenId}!`, 'success');
+          // Redirect to reports page
           setTimeout(() => {
-            window.location.href = '/dashboard';
-          }, 1500);
+            window.location.href = '/reports';
+          }, 800);
         } else {
           const error = await response.json();
           UI.showAlert(error.error || 'Login failed', 'error');
@@ -144,17 +146,6 @@
         UI.hideLoading();
         UI.showAlert('Error: ' + err.message, 'error');
       }
-    });
-  </script>
-</body>
-</html>
-      
-      UI.showToast(`Welcome, ${citizenId}!`, 'success');
-      
-      // Redirect to reports page
-      setTimeout(() => {
-        window.location.href = '/reports';
-      }, 800);
     });
   </script>
 </body>

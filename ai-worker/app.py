@@ -27,7 +27,7 @@ env_path = Path(__file__).resolve().parent.parent / '.env'
 load_dotenv(env_path)
 
 # Get database path
-DB_PATH = Path(__file__).resolve().parent.parent / "shared" / "roadwatch.db"
+DB_PATH = Path(os.getenv("DATABASE_URL", "../roadwatch.db")).resolve()
 
 # AI Gateway configuration
 AI_GATEWAY_URL = os.getenv("AI_GATEWAY_URL", "http://127.0.0.1:9004")
@@ -105,7 +105,7 @@ class AIWorker:
             ).fetchone()
             
             media_list = conn.execute(
-                "SELECT id, type, filename FROM media WHERE report_id = ?",
+                "SELECT id, mime_type, filename FROM media WHERE report_id = ?",
                 (report_id,)
             ).fetchall()
             

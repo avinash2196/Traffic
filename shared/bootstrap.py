@@ -27,7 +27,7 @@ class DatabaseConnection:
     
     def connect(self):
         """Initialize SQLite connection with WAL mode (better concurrency)."""
-        self.connection = sqlite3.connect(str(self.db_path), check_same_thread=False)
+        self.connection = sqlite3.connect(str(self.db_path), timeout=15.0, check_same_thread=False)
         self.connection.row_factory = sqlite3.Row  # Access columns by name
         
         # Enable WAL mode for better concurrent access

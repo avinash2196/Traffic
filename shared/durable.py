@@ -23,8 +23,14 @@ def migrate(conn: sqlite3.Connection) -> None:
     """Add only durable state; never enqueue historical reports or alter AI payloads."""
     try:
         conn.execute('BEGIN IMMEDIATE')
-        if 'evidence_revision' not in {r[1] for r in conn.execute('PRAGMA table_info(reports)')}:
+        # Only alter reports table if it exists
+        reports_exists = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='reports'"
+        ).fetchone() is not None
+        
+        if reports_exists and 'evidence_revision' not in {r[1] for r in conn.execute('PRAGMA table_info(reports)')}:
             conn.execute('ALTER TABLE reports ADD COLUMN evidence_revision INTEGER NOT NULL DEFAULT 1')
+        
         for statement in SCHEMA:
             conn.execute(statement)
         if 'settings_snapshot' not in {r[1] for r in conn.execute('PRAGMA table_info(ai_jobs)')}:
