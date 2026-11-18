@@ -74,6 +74,9 @@
   <script src="/static/js/api.js"></script>
   <script src="/static/js/common.js"></script>
   <script>
+    let reportId = null;
+    let reportData = null;
+
     // CRITICAL FIX: Auth check with proper script loading guarantee
     function checkAuthAndLoad() {
       if (typeof AUTH === 'undefined' || !AUTH.isReviewer) {
@@ -95,7 +98,7 @@
         window.location.href = '/login';
       });
 
-      const reportId = UTILS.getQueryParam('id');
+      reportId = UTILS.getQueryParam('id');
       if (!reportId) {
         document.getElementById('case-container').innerHTML = '<div class="alert alert-error">No report ID specified</div>';
         document.getElementById('decision-container').style.display = 'none';
@@ -193,8 +196,8 @@
               }
             }
             
-            if (report.ai.recommendation) {
-              html += `<p><strong>Outcome:</strong> ${report.ai.outcome || 'Unknown'}</p>`;
+            if (report.ai.outcome) {
+              html += `<p><strong>Outcome:</strong> ${report.ai.outcome}</p>`;
             }
           }
           
@@ -244,18 +247,17 @@
             UI.showAlert(`Download failed: ${result.error}`, 'error');
           }
         });
-      }
+    }
 
-      loadCase();
+    // Violation points mapping
+    const violationPoints = {
+      'no_helmet': 2,
+      'triple_riding': 3,
+      'red_light': 4
+    };
 
-      // Violation points mapping
-      const violationPoints = {
-        'no_helmet': 2,
-        'triple_riding': 3,
-        'red_light': 4
-      };
-
-      // Handle decision type change
+    // Handle decision type change
+    document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('decision_type').addEventListener('change', function(e) {
         const pointsGroup = document.getElementById('points-group');
         if (e.target.value === 'approved') {
@@ -266,56 +268,6 @@
           pointsGroup.style.display = 'none';
         }
       });
-
-      function populateViolationCheckboxes() {
-        const checkboxesContainer = document.getElementById('violation-checkboxes');
-        checkboxesContainer.innerHTML = '';
-
-        if (!reportData || !reportData.assessment) {
-          checkboxesContainer.innerHTML = '<p style="color: #999;">No AI assessment available</p>';
-          return;
-        }
-
-        const assessment = reportData.assessment;
-        const violations = [
-          { key: 'no_helmet', label: 'No Helmet Violation', points: 2 },
-          { key: 'triple_riding', label: 'Triple Riding Violation', points: 3 },
-          { key: 'red_light', label: 'Red Light Violation', points: 4 }
-        ];
-
-        violations.forEach(violation => {
-          const detected = assessment[violation.key] || false;
-          const html = `
-            <label style="display: flex; align-items: center; padding: 0.5rem; background: white; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
-              <input type="checkbox" class="violation-checkbox" data-violation="${violation.key}" data-points="${violation.points}" ${detected ? 'checked' : ''} ${detected ? '' : 'disabled'} style="margin-right: 0.5rem;">
-              <span>
-                <strong>${violation.label}</strong>
-                <span style="margin-left: 0.5rem; color: #666; font-size: 0.9rem;">(${violation.points} pts)</span>
-                <span style="margin-left: 0.5rem; ${detected ? 'color: #28a745;' : 'color: #999;'}">${detected ? '✅ Detected' : '❌ Not Detected'}</span>
-              </span>
-            </label>
-          `;
-          checkboxesContainer.innerHTML += html;
-        });
-
-        // Add event listeners to checkboxes
-        document.querySelectorAll('.violation-checkbox').forEach(checkbox => {
-          checkbox.addEventListener('change', updateTotalPoints);
-        });
-
-        updateTotalPoints();
-      }
-
-      let reportData = null;
-
-      function updateTotalPoints() {
-        let total = 0;
-        document.querySelectorAll('.violation-checkbox:checked').forEach(checkbox => {
-          total += parseInt(checkbox.dataset.points) || 0;
-        });
-        document.getElementById('total-points').textContent = total;
-        document.getElementById('provisional_points').value = total;
-      }
 
       // Handle decision submission
       document.getElementById('decision-form').addEventListener('submit', async function(e) {
@@ -359,6 +311,54 @@
           UI.enableButton(document.getElementById('submit-decision'));
         }
       });
+    });
+
+    function populateViolationCheckboxes() {
+      const checkboxesContainer = document.getElementById('violation-checkboxes');
+      checkboxesContainer.innerHTML = '';
+
+      if (!reportData || !reportData.assessment) {
+        checkboxesContainer.innerHTML = '<p style="color: #999;">No AI assessment available</p>';
+        return;
+      }
+
+      const assessment = reportData.assessment;
+      const violations = [
+        { key: 'no_helmet', label: 'No Helmet Violation', points: 2 },
+        { key: 'triple_riding', label: 'Triple Riding Violation', points: 3 },
+        { key: 'red_light', label: 'Red Light Violation', points: 4 }
+      ];
+
+      violations.forEach(violation => {
+        const detected = assessment[violation.key] || false;
+        const html = `
+          <label style="display: flex; align-items: center; padding: 0.5rem; background: white; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
+            <input type="checkbox" class="violation-checkbox" data-violation="${violation.key}" data-points="${violation.points}" ${detected ? 'checked' : ''} ${detected ? '' : 'disabled'} style="margin-right: 0.5rem;">
+            <span>
+              <strong>${violation.label}</strong>
+              <span style="margin-left: 0.5rem; color: #666; font-size: 0.9rem;">(${violation.points} pts)</span>
+              <span style="margin-left: 0.5rem; ${detected ? 'color: #28a745;' : 'color: #999;'}">${detected ? '✅ Detected' : '❌ Not Detected'}</span>
+            </span>
+          </label>
+        `;
+        checkboxesContainer.innerHTML += html;
+      });
+
+      // Add event listeners to checkboxes
+      document.querySelectorAll('.violation-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', updateTotalPoints);
+      });
+
+      updateTotalPoints();
+    }
+
+    function updateTotalPoints() {
+      let total = 0;
+      document.querySelectorAll('.violation-checkbox:checked').forEach(checkbox => {
+        total += parseInt(checkbox.dataset.points) || 0;
+      });
+      document.getElementById('total-points').textContent = total;
+      document.getElementById('provisional_points').value = total;
     }
     
     checkAuthAndLoad();
