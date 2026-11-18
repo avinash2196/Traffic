@@ -209,20 +209,8 @@ class JobStore:
                 if 'assessment' in assessment:
                     advisory['assessment']=assessment['assessment']
                     assessment_id=advisory['assessment']['id']
-                    
-                    # Auto-approve/reject based on violations found
-                    if advisory['outcome']=='irrelevant':
-                        # No violations found - auto-reject
-                        conn.execute("UPDATE reports SET status='rejected' WHERE id=? AND status='awaiting-review'",(row['report_id'],))
-                    elif advisory['outcome']=='relevant':
-                        # Violations found - check if any are true
-                        assessment_obj = advisory['assessment']
-                        has_violation = (assessment_obj.get('no_helmet') or 
-                                       assessment_obj.get('triple_riding') or 
-                                       assessment_obj.get('red_light'))
-                        if has_violation:
-                            # Auto-approve with provisional points
-                            conn.execute("UPDATE reports SET status='approved', provisional_points=3 WHERE id=? AND status='awaiting-review'",(row['report_id'],))
+                    # Keep status as awaiting-review - let officer decide
+                    # Officer will see AI violations and make approval decision
                 
                 conn.execute("UPDATE ai_attempts SET state='succeeded',completed_at=? WHERE job_id=? AND number=?", (now,token['job_id'],token['number']))
                 conn.execute("UPDATE ai_jobs SET state='completed',owner=NULL,completed_at=?,failure_code=NULL,assessment_id=?,assessment=? WHERE id=?", (now,assessment_id,json.dumps(advisory),token['job_id']))
