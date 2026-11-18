@@ -244,7 +244,7 @@ async def get_report_detail(request: Request, report_id: str):
 
 def _media_view_with_token(row, report_id, token):
     """Format media view URL with token."""
-    from intake import resource_name
+    from shared.intake import resource_name
     name = resource_name(row)
     return {
         'media_id': row['id'],
