@@ -135,12 +135,45 @@
             html += `<p><strong style="color: #dc3545;">⚠️ Assessment failed</strong> (${report.ai.failure_reason})</p>`;
           } else if (report.ai.state === 'pending' || report.ai.state === 'processing') {
             html += `<p><strong style="color: #0d6efd;">⏳ Assessment in progress...</strong></p>`;
-          } else if (report.ai.state === 'success') {
-            html += `<p><strong style="color: #198754;">✅ Assessment complete</strong></p>`;
-            if (report.ai.recommendation) {
-              html += `<p>Recommendation: ${report.ai.recommendation}</p>`;
+            html += `<p style="font-size: 0.9rem; color: #666;">This usually takes 5-10 seconds. The page will refresh automatically.</p>`;
+          } else if (report.ai.state === 'completed' || report.ai.state === 'success') {
+            html += `<p><strong style="color: #198754;">✅ Assessment Complete</strong></p>`;
+            
+            // Show violations detected
+            if (report.assessment) {
+              html += '<div style="margin: 1rem 0; padding: 1rem; background: white; border-radius: 4px;">';
+              html += '<p style="font-size: 0.9rem; color: #666; margin: 0 0 0.75rem 0;"><strong>Violations Detected by AI:</strong></p>';
+              html += '<table style="width: 100%; border-collapse: collapse;">';
+              html += '<tr style="border-bottom: 1px solid #ddd;">';
+              html += '<th style="text-align: left; padding: 0.5rem; font-size: 0.9rem;">Violation Type</th>';
+              html += '<th style="text-align: center; padding: 0.5rem; font-size: 0.9rem;">Status</th>';
+              html += '</tr>';
+              
+              const showViolation = (name, detected) => {
+                const icon = detected ? '✅' : '❌';
+                const color = detected ? '#28a745' : '#6c757d';
+                html += `<tr style="border-bottom: 1px solid #eee;">`;
+                html += `<td style="padding: 0.5rem; font-size: 0.9rem;">${name}</td>`;
+                html += `<td style="text-align: center; padding: 0.5rem; color: ${color}; font-weight: bold;">${icon} ${detected ? 'Detected' : 'Not Detected'}</td>`;
+                html += `</tr>`;
+              };
+              
+              showViolation('No Helmet', report.assessment.no_helmet);
+              showViolation('Triple Riding', report.assessment.triple_riding);
+              showViolation('Red Light', report.assessment.red_light);
+              
+              html += '</table>';
+              html += '</div>';
+              
+              // Show recommendation
+              if (report.assessment.recommendation) {
+                html += `<p style="margin: 1rem 0 0 0;"><strong>AI Recommendation:</strong> <span style="color: #0d6efd;">${report.assessment.recommendation}</span></p>`;
+              }
             }
           }
+          
+          html += `<p style="font-size: 0.85rem; color: #999; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #ddd;">`;
+          html += `AI Processing Time: ${report.ai.processing_ms || 0}ms | Job: ${report.ai.job_id}</p>`;
           html += '</div>';
         }
 
