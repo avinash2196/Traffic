@@ -92,11 +92,16 @@ class JobStore:
                 result.update(json.loads(row['assessment']))
                 assessment = result.get('assessment')
                 if isinstance(assessment, dict) and 'provider' not in assessment:
-                    from gateway import VERSIONS, PROFILES
-                    established = (assessment.get('model') == PROFILES['gemini'][0]
-                                   and all(assessment.get(key) == value for key, value in VERSIONS.items()))
-                    assessment['provider'] = 'gemini' if established else None
-                    assessment['media_coverage'] = None
+                    try:
+                        from gateway import VERSIONS, PROFILES
+                        established = (assessment.get('model') == PROFILES['gemini'][0]
+                                       and all(assessment.get(key) == value for key, value in VERSIONS.items()))
+                        assessment['provider'] = 'gemini' if established else None
+                        assessment['media_coverage'] = None
+                    except (ImportError, KeyError, AttributeError):
+                        # gateway module not available - set defaults
+                        assessment['provider'] = None
+                        assessment['media_coverage'] = None
             return result
 
     def public_summary(self, report_id: str) -> dict:
@@ -204,8 +209,21 @@ class JobStore:
                 if 'assessment' in assessment:
                     advisory['assessment']=assessment['assessment']
                     assessment_id=advisory['assessment']['id']
+                    
+                    # Auto-approve/reject based on violations found
                     if advisory['outcome']=='irrelevant':
-                        conn.execute("UPDATE reports SET status='ai-screened-out' WHERE id=? AND status='awaiting-review'",(row['report_id'],))
+                        # No violations found - auto-reject
+                        conn.execute("UPDATE reports SET status='rejected' WHERE id=? AND status='awaiting-review'",(row['report_id'],))
+                    elif advisory['outcome']=='relevant':
+                        # Violations found - check if any are true
+                        assessment_obj = advisory['assessment']
+                        has_violation = (assessment_obj.get('no_helmet') or 
+                                       assessment_obj.get('triple_riding') or 
+                                       assessment_obj.get('red_light'))
+                        if has_violation:
+                            # Auto-approve with provisional points
+                            conn.execute("UPDATE reports SET status='approved', provisional_points=3 WHERE id=? AND status='awaiting-review'",(row['report_id'],))
+                
                 conn.execute("UPDATE ai_attempts SET state='succeeded',completed_at=? WHERE job_id=? AND number=?", (now,token['job_id'],token['number']))
                 conn.execute("UPDATE ai_jobs SET state='completed',owner=NULL,completed_at=?,failure_code=NULL,assessment_id=?,assessment=? WHERE id=?", (now,assessment_id,json.dumps(advisory),token['job_id']))
             elif row is not None:
