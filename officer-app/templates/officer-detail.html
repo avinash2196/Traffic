@@ -35,6 +35,23 @@
           </select>
         </div>
 
+        <!-- Points selector - shown when approved is selected -->
+        <div class="form-group" id="points-group" style="display: none;">
+          <label for="provisional_points">Provisional Points *</label>
+          <div id="violation-points-panel" style="background: #f8f9fa; padding: 1rem; border-radius: 4px; margin: 0.5rem 0;">
+            <p style="font-size: 0.9rem; color: #666; margin: 0 0 1rem 0;">
+              Select violations detected by AI to calculate points:
+            </p>
+            <div id="violation-checkboxes" style="display: grid; gap: 0.75rem;">
+              <!-- Checkboxes will be inserted here -->
+            </div>
+            <div style="background: white; padding: 1rem; border-radius: 4px; margin-top: 1rem; border: 2px solid #0d6efd;">
+              <strong>Total Points: <span id="total-points" style="color: #0d6efd; font-size: 1.3em;">0</span></strong>
+            </div>
+          </div>
+          <input type="hidden" id="provisional_points" value="0">
+        </div>
+
         <div class="form-group">
           <label for="comments">Comments/Remarks</label>
           <textarea id="comments" placeholder="Optional: Explain your decision..."></textarea>
@@ -100,6 +117,7 @@
         }
 
         const report = result.data;
+        reportData = report; // Store globally for later use in decision form
 
         let html = `
           <h2>${UI.formatViolation(report.violation_type)}</h2>
@@ -137,17 +155,50 @@
             html += `State: ${report.ai.state}<br>`;
             html += `Attempts: ${report.ai.attempt_count}/${report.ai.max_attempts}`;
             html += `</div>`;
-          } else if (report.ai.state === 'success') {
+          } else if (report.ai.state === 'completed' || report.ai.state === 'success') {
             html += `<div class="alert alert-success"><strong>✅ AI Assessment Complete</strong></div>`;
-            if (report.ai.recommendation) {
-              html += `<p><strong>Recommendation:</strong> ${report.ai.recommendation}</p>`;
+            
+            // Show violations detected
+            if (report.assessment) {
+              html += '<div style="margin: 1rem 0; padding: 1rem; background: white; border-radius: 4px;">';
+              html += '<h4>Violations Detected:</h4>';
+              html += '<table style="width: 100%; border-collapse: collapse;">';
+              html += '<tr style="border-bottom: 1px solid #ddd;">';
+              html += '<th style="text-align: left; padding: 0.5rem;">Violation Type</th>';
+              html += '<th style="text-align: center; padding: 0.5rem;">Status</th>';
+              html += '<th style="text-align: center; padding: 0.5rem;">Points</th>';
+              html += '</tr>';
+              
+              // Helper function to show violation status
+              const showViolation = (name, detected, points) => {
+                const icon = detected ? '✅' : '❌';
+                const color = detected ? '#28a745' : '#6c757d';
+                html += `<tr style="border-bottom: 1px solid #eee;">`;
+                html += `<td style="padding: 0.5rem;">${name}</td>`;
+                html += `<td style="text-align: center; padding: 0.5rem; color: ${color};">${icon} ${detected ? 'Detected' : 'Not Detected'}</td>`;
+                html += `<td style="text-align: center; padding: 0.5rem;">${detected ? points : '-'}</td>`;
+                html += `</tr>`;
+              };
+              
+              showViolation('No Helmet', report.assessment.no_helmet, 2);
+              showViolation('Triple Riding', report.assessment.triple_riding, 3);
+              showViolation('Red Light', report.assessment.red_light, 4);
+              
+              html += '</table>';
+              html += '</div>';
+              
+              // Show recommendation
+              if (report.assessment.recommendation) {
+                html += `<p style="margin-top: 1rem;"><strong>AI Recommendation:</strong> <span style="color: #0d6efd; font-weight: bold;">${report.assessment.recommendation}</span></p>`;
+              }
             }
-            if (report.ai.outcome) {
-              html += `<p><strong>Outcome:</strong> ${report.ai.outcome}</p>`;
+            
+            if (report.ai.recommendation) {
+              html += `<p><strong>Outcome:</strong> ${report.ai.outcome || 'Unknown'}</p>`;
             }
           }
           
-          html += `<p style="font-size: 0.9rem; color: #666;">`;
+          html += `<p style="font-size: 0.9rem; color: #666; margin-top: 1rem;">`;
           html += `Processing time: ${report.ai.processing_ms || 0}ms | `;
           html += `Job ID: ${report.ai.job_id}<br>`;
           html += `Started: ${new Date(report.ai.started_at).toLocaleString()} | `;
@@ -197,16 +248,91 @@
 
       loadCase();
 
+      // Violation points mapping
+      const violationPoints = {
+        'no_helmet': 2,
+        'triple_riding': 3,
+        'red_light': 4
+      };
+
+      // Handle decision type change
+      document.getElementById('decision_type').addEventListener('change', function(e) {
+        const pointsGroup = document.getElementById('points-group');
+        if (e.target.value === 'approved') {
+          pointsGroup.style.display = 'block';
+          // Populate violation checkboxes from assessment
+          populateViolationCheckboxes();
+        } else {
+          pointsGroup.style.display = 'none';
+        }
+      });
+
+      function populateViolationCheckboxes() {
+        const checkboxesContainer = document.getElementById('violation-checkboxes');
+        checkboxesContainer.innerHTML = '';
+
+        if (!reportData || !reportData.assessment) {
+          checkboxesContainer.innerHTML = '<p style="color: #999;">No AI assessment available</p>';
+          return;
+        }
+
+        const assessment = reportData.assessment;
+        const violations = [
+          { key: 'no_helmet', label: 'No Helmet Violation', points: 2 },
+          { key: 'triple_riding', label: 'Triple Riding Violation', points: 3 },
+          { key: 'red_light', label: 'Red Light Violation', points: 4 }
+        ];
+
+        violations.forEach(violation => {
+          const detected = assessment[violation.key] || false;
+          const html = `
+            <label style="display: flex; align-items: center; padding: 0.5rem; background: white; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
+              <input type="checkbox" class="violation-checkbox" data-violation="${violation.key}" data-points="${violation.points}" ${detected ? 'checked' : ''} ${detected ? '' : 'disabled'} style="margin-right: 0.5rem;">
+              <span>
+                <strong>${violation.label}</strong>
+                <span style="margin-left: 0.5rem; color: #666; font-size: 0.9rem;">(${violation.points} pts)</span>
+                <span style="margin-left: 0.5rem; ${detected ? 'color: #28a745;' : 'color: #999;'}">${detected ? '✅ Detected' : '❌ Not Detected'}</span>
+              </span>
+            </label>
+          `;
+          checkboxesContainer.innerHTML += html;
+        });
+
+        // Add event listeners to checkboxes
+        document.querySelectorAll('.violation-checkbox').forEach(checkbox => {
+          checkbox.addEventListener('change', updateTotalPoints);
+        });
+
+        updateTotalPoints();
+      }
+
+      let reportData = null;
+
+      function updateTotalPoints() {
+        let total = 0;
+        document.querySelectorAll('.violation-checkbox:checked').forEach(checkbox => {
+          total += parseInt(checkbox.dataset.points) || 0;
+        });
+        document.getElementById('total-points').textContent = total;
+        document.getElementById('provisional_points').value = total;
+      }
+
       // Handle decision submission
       document.getElementById('decision-form').addEventListener('submit', async function(e) {
         e.preventDefault();
 
         const decisionType = document.getElementById('decision_type').value;
         const comments = document.getElementById('comments').value;
+        const provisionalPoints = parseInt(document.getElementById('provisional_points').value) || 0;
 
         if (!decisionType) {
           UI.showAlert('Please select a decision', 'error');
           return;
+        }
+
+        if (decisionType === 'approved' && provisionalPoints === 0) {
+          const confirmed = await UI.confirmAction('Award 0 points? Make sure you selected violations.');
+          if (!confirmed) return;
         }
 
         const confirmed = await UI.confirmAction(`Confirm ${decisionType} decision?`);
@@ -218,6 +344,7 @@
         const result = await API.submitDecision(reportId, {
           decision_type: decisionType,
           comments: comments,
+          provisional_points: provisionalPoints
         });
 
         UI.hideLoading();

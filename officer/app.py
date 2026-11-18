@@ -292,6 +292,7 @@ async def make_decision(request: Request, report_id: str):
         # Handle both field names: decision_type (UI) and action (old API)
         decision_type = body.get("decision_type") or body.get("action")
         comments = body.get("comments") or body.get("reason")
+        provisional_points = body.get("provisional_points", None)
         
         # Normalize decision_type to action values
         if decision_type == "approved":
@@ -322,7 +323,11 @@ async def make_decision(request: Request, report_id: str):
         
         if action == "approve":
             new_status = "approved"
-            provisional_points = POINTS_BY_VIOLATION.get(report["violation_type"], 0)
+            # Use provided provisional_points, or fall back to violation type mapping
+            if provisional_points is None:
+                provisional_points = POINTS_BY_VIOLATION.get(report["violation_type"], 0)
+            else:
+                provisional_points = int(provisional_points)
             
             with db.transaction() as conn:
                 conn.execute(
