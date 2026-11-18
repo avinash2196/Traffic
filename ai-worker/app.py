@@ -191,6 +191,10 @@ class AIWorker:
                     has_violation = assessment.get('no_helmet') or assessment.get('triple_riding') or assessment.get('red_light')
                     outcome = 'relevant' if has_violation else 'irrelevant'
                     
+                    # Add id to assessment (required by job_store schema)
+                    from uuid import uuid4
+                    assessment['id'] = uuid4().hex
+                    
                     # Store result with required fields (outcome + recommendation)
                     final_result = {
                         "outcome": outcome,
