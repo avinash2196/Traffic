@@ -1,14 +1,13 @@
-"""AI Gateway MVP - Calls real Gemini/OpenAI APIs for image assessment.
+"""AI Gateway MVP - Simplified Single-Call Approach.
 
-This MVP service calls real AI providers (Gemini/OpenAI) and validates responses
-against the assessment_policy schema. No ffmpeg dependency (images only).
+Single endpoint that returns boolean violations directly.
+No complex schema validation - just what officer needs to decide.
 """
 
-# Load environment variables from .env FIRST
 import os
 from pathlib import Path
 
-# Try to load .env from parent directory (where main config is)
+# Load environment variables
 env_path = Path(__file__).resolve().parent.parent / '.env'
 if env_path.exists():
     with open(env_path) as f:
@@ -31,678 +30,205 @@ from fastapi import FastAPI, Request
 from starlette.responses import JSONResponse
 import httpx
 
-from assessment_policy import validate, PROMPT
-from agw_protocol import BoundaryError, safe_id
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ai.gateway.mvp")
 
-app = FastAPI(title="AI Gateway MVP")
+app = FastAPI(title="AI Gateway MVP - Simplified")
 
-# Configuration
-AI_PROVIDER = os.getenv('AI_PROVIDER', 'openai').lower()
-AI_GATEWAY_TOKEN = os.getenv('AI_GATEWAY_TOKEN', '')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
-GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
+OPENAI_MODEL = os.getenv('OPENAI_MODEL', 'gpt-4o-mini')
+AI_GATEWAY_TOKEN = os.getenv('AI_GATEWAY_TOKEN', 'local-ai-gateway')
 
-# Provider endpoints
-PROVIDER_CONFIGS = {
-    'openai': {
-        'model': 'gpt-4o-mini',
-        'key': OPENAI_API_KEY,
-    },
-    'gemini': {
-        'model': 'gemini-2.0-flash',
-        'key': GEMINI_API_KEY,
+
+async def call_openai_simple(image_base64: str, violation_type: str) -> dict:
+    """
+    Single OpenAI call that returns boolean violations.
+    
+    Args:
+        image_base64: Base64-encoded image
+        violation_type: Type of violation (helmet, etc.)
+    
+    Returns:
+        {
+            "no_helmet": true/false,
+            "triple_riding": true/false,
+            "red_light": true/false,
+            "recommendation": "Issue warning" or "No violation"
+        }
+    """
+    prompt = f"""Analyze this traffic violation image for a {violation_type} violation.
+
+Return ONLY the JSON in the exact format below (no markdown, no explanation, no extra text):
+{{
+  "no_helmet": true or false,
+  "triple_riding": true or false,
+  "red_light": true or false,
+  "recommendation": "Issue warning" or "No violation"
+}}
+
+Rules:
+- no_helmet: Are riders/drivers NOT wearing helmets? (true/false)
+- triple_riding: Are there more than 2 people on a single two-wheeler? (true/false)
+- red_light: Is vehicle crossing at a red traffic signal? (true/false)
+- recommendation: If any violation is true, say "Issue warning". Otherwise "No violation".
+
+Be confident in your assessment. Return JSON in provided format only."""
+
+    headers = {
+        "Authorization": f"Bearer {OPENAI_API_KEY}",
+        "Content-Type": "application/json"
     }
-}
-
-
-async def assess_with_openai(client, media_items, prompt_text, key, deadline):
-    """Call OpenAI Chat API with image(s)."""
-    started = time.monotonic()
     
-    # Build message content with images
-    content = [
-        {"type": "text", "text": prompt_text}
-    ]
-    
-    for item in media_items:
-        if item['mime_type'].startswith('image/'):
-            b64 = base64.b64encode(item['bytes']).decode('utf-8')
-            content.append({
-                "type": "image_url",
-                "image_url": {
-                    "url": f"data:{item['mime_type']};base64,{b64}"
-                }
-            })
-    
-    # Use a simplified schema that OpenAI will actually return
-    body = {
-        "model": "gpt-4o-mini",
+    payload = {
+        "model": OPENAI_MODEL,
+        "temperature": 0.2,
+        "max_tokens": 500,
         "messages": [
             {
-                "role": "system",
-                "content": prompt_text
-            },
-            {
                 "role": "user",
-                "content": content
-            }
-        ],
-        "response_format": {
-            "type": "json_schema",
-            "json_schema": {
-                "name": "traffic_assessment",
-                "strict": False,
-                "schema": {
-                    "type": "object",
-                    "properties": {
-                        "relevance": {"type": "string"},
-                        "violation_confidence": {"type": "number"},
-                        "relevance_confidence": {"type": "number"},
-                        "recommendation": {"type": "string"},
-                        "explanation": {"type": "string"},
-                        "observations": {"type": "array"},
-                        "attachment_relevance": {"type": "array"},
-                        "rule_notes": {"type": "array"}
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}
                     }
-                }
+                ]
             }
-        },
-        "temperature": 0.3,
-        "max_tokens": 4096
+        ]
     }
     
-    headers = {"Authorization": f"Bearer {key}"}
-    
-    try:
-        async with httpx.AsyncClient() as http_client:
-            resp = await http_client.post(
-                "https://api.openai.com/v1/chat/completions",
-                json=body,
-                headers=headers,
-                timeout=max(10, deadline - time.monotonic())
-            )
-        
-        elapsed_ms = int((time.monotonic() - started) * 1000)
-        
-        if resp.status_code != 200:
-            logger.error(f"OpenAI error {resp.status_code}: {resp.text[:500]}")
-            return None, elapsed_ms
-        
-        result = resp.json()
-        if result.get('choices') and len(result['choices']) > 0:
-            message = result['choices'][0].get('message', {})
-            assessment_text = message.get('content', '{}')
-            logger.info(f"OpenAI response content: {assessment_text[:200]}")
-            assessment = json.loads(assessment_text)
-            
-            # Normalize recommendation to valid enum values
-            # Map to: recommend-approve, recommend-reject, needs-human-judgment, screen-out-irrelevant
-            raw_rec = (assessment.get('recommendation') or '').lower().strip()
-            if 'irrelevant' in raw_rec or 'irrelevancy' in raw_rec or 'not.*violation' in raw_rec:
-                assessment['recommendation'] = 'screen-out-irrelevant'
-            elif 'award' in raw_rec or 'penaliz' in raw_rec or 'fine' in raw_rec or 'approve' in raw_rec or 'yes' in raw_rec or 'violation.*clear' in raw_rec:
-                assessment['recommendation'] = 'recommend-approve'
-            elif 'reject' in raw_rec or 'dismiss' in raw_rec or 'no violation' in raw_rec:
-                assessment['recommendation'] = 'recommend-reject'
-            else:
-                # Default to needs human judgment if uncertain
-                assessment['recommendation'] = 'needs-human-judgment'
-            
-            logger.info(f"Normalized assessment: {assessment}")
-            return assessment, elapsed_ms
-        else:
-            logger.error(f"No choices in OpenAI response: {result}")
-            return None, elapsed_ms
-    except Exception as e:
-        logger.error(f"OpenAI call error: {e}", exc_info=True)
-        return None, int((time.monotonic() - started) * 1000)
-
-
-def transform_to_strict_schema(assessment, media_items):
-    """Transform OpenAI's simplified response to match strict validation schema."""
-    # Get first media ID (for single image case)
-    primary_media_id = media_items[0]['id'] if media_items else 'unknown'
-    
-    # Ensure all required fields exist
-    result = {
-        'relevance': assessment.get('relevance', 'uncertain').lower() if assessment.get('relevance') else 'uncertain',
-        'relevance_confidence': int(min(100, max(0, assessment.get('relevance_confidence', 50)))),
-        'violation_confidence': int(min(100, max(0, assessment.get('violation_confidence', 50)))),
-        'recommendation': assessment.get('recommendation', 'needs-human-judgment'),
-        'explanation': str(assessment.get('explanation', 'No explanation provided'))[:8192],
-        'observations': [],
-        'attachment_relevance': [],
-        'rule_notes': [],
-        'limitations': ['Officer review required for final determination', 'AI confidence scores are uncalibrated estimates']
-    }
-    
-    # Normalize relevance
-    if result['relevance'] not in ('relevant', 'irrelevant', 'uncertain'):
-        result['relevance'] = 'uncertain'
-    
-    # Build observations from raw observations or create placeholder
-    obs_list = assessment.get('observations', [])
-    if obs_list and isinstance(obs_list, list):
-        for idx, obs in enumerate(obs_list):
-            if isinstance(obs, dict):
-                result['observations'].append({
-                    'media_id': obs.get('media_id', primary_media_id),
-                    'text': str(obs.get('text', obs) if isinstance(obs, dict) else obs)[:2048],
-                    'start_ms': None,
-                    'end_ms': None
-                })
-            else:
-                result['observations'].append({
-                    'media_id': primary_media_id,
-                    'text': str(obs)[:2048],
-                    'start_ms': None,
-                    'end_ms': None
-                })
-    
-    # Ensure at least one observation for image analysis
-    if not result['observations']:
-        result['observations'].append({
-            'media_id': primary_media_id,
-            'text': result['explanation'],
-            'start_ms': None,
-            'end_ms': None
-        })
-    
-    # Build attachment_relevance for each media item
-    att_rel_list = assessment.get('attachment_relevance', [])
-    for media in media_items:
-        media_id = media['id']
-        
-        # Find matching attachment_relevance entry
-        matching_rel = None
-        if att_rel_list:
-            for att in att_rel_list:
-                if isinstance(att, dict) and att.get('media_id') == media_id:
-                    matching_rel = att
-                    break
-        
-        if matching_rel:
-            result['attachment_relevance'].append({
-                'media_id': media_id,
-                'relevance': matching_rel.get('relevance', result['relevance']),
-                'reason': str(matching_rel.get('reason', ''))[:2048] or 'See observations for details'
-            })
-        else:
-            result['attachment_relevance'].append({
-                'media_id': media_id,
-                'relevance': result['relevance'],
-                'reason': 'Media analyzed as part of assessment'
-            })
-    
-    # Build rule_notes with standard references
-    rule_notes_input = assessment.get('rule_notes', [])
-    standard_refs = {
-        'helmet': 'MVA-129-2019',
-        'triple': 'MVA-128-1',
-        'red-light': 'MVA-119-1',
-        'signal': 'MVDR-12-1'
-    }
-    
-    for ref_id, ref_name in standard_refs.items():
-        note_text = 'Not evaluated in this assessment'
-        if rule_notes_input and isinstance(rule_notes_input, list):
-            for note in rule_notes_input:
-                if isinstance(note, dict) and ref_id in str(note).lower():
-                    note_text = str(note.get('note', note))[:2048]
-                    break
-                elif isinstance(note, str) and ref_id in note.lower():
-                    note_text = note[:2048]
-                    break
-        
-        result['rule_notes'].append({
-            'reference_id': ref_name,
-            'applicability': 'not-established',
-            'note': note_text
-        })
-    
-    return result
-
-
-async def assess_with_gemini(client, media_items, prompt_text, key, deadline):
-    """Call Gemini API with image(s)."""
-    started = time.monotonic()
-    
-    # Build message content with images
-    content = [
-        {"text": prompt_text},
-        {"text": "Untrusted context: (see images)"}
-    ]
-    
-    for item in media_items:
-        if item['mime_type'].startswith('image/'):
-            b64 = base64.b64encode(item['bytes']).decode('utf-8')
-            content.append({
-                "inlineData": {
-                    "mimeType": item['mime_type'],
-                    "data": b64
-                }
-            })
-    
-    schema = {
-        "type": "object",
-        "properties": {
-            "relevance": {"type": "string", "enum": ["relevant", "uncertain", "irrelevant"]},
-            "violation_confidence": {"type": "number", "minimum": 0, "maximum": 1},
-            "relevance_confidence": {"type": "number", "minimum": 0, "maximum": 1},
-            "recommendation": {"type": "string", "enum": ["award-points", "needs-human-judgment", "reject"]},
-            "explanation": {"type": "string"},
-            "observations": {"type": "array", "items": {"type": "object"}},
-            "attachment_relevance": {"type": "array", "items": {"type": "object"}},
-            "rule_notes": {"type": "array", "items": {"type": "object"}}
-        },
-        "required": ["relevance", "violation_confidence", "recommendation"]
-    }
-    
-    body = {
-        "system_instruction": {"parts": [{"text": PROMPT}]},
-        "contents": [{"role": "user", "parts": content}],
-        "generationConfig": {
-            "responseMimeType": "application/json",
-            "responseJsonSchema": schema
-        }
-    }
-    
-    headers = {"x-goog-api-key": key}
-    
-    async with httpx.AsyncClient() as http_client:
-        resp = await http_client.post(
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
-            json=body,
-            headers=headers,
-            timeout=deadline - time.monotonic()
+    async with httpx.AsyncClient(timeout=30) as client:
+        logger.info(f"OpenAI request: {OPENAI_MODEL}")
+        response = await client.post(
+            "https://api.openai.com/v1/chat/completions",
+            json=payload,
+            headers=headers
         )
-    
-    elapsed_ms = int((time.monotonic() - started) * 1000)
-    
-    if resp.status_code != 200:
-        logger.error(f"Gemini error {resp.status_code}: {resp.text}")
-        return None, elapsed_ms
-    
-    try:
-        result = resp.json()
-        candidates = result.get('candidates', [])
-        if candidates and candidates[0].get('finishReason') == 'STOP':
-            parts = candidates[0].get('content', {}).get('parts', [])
-            for part in parts:
-                if 'text' in part:
-                    assessment = json.loads(part['text'])
-                    return assessment, elapsed_ms
-    except Exception as e:
-        logger.error(f"Gemini response parse error: {e}")
-    
-    return None, elapsed_ms
-
-
-
-
+        
+        if response.status_code != 200:
+            logger.error(f"OpenAI error: {response.status_code} {response.text}")
+            raise Exception(f"OpenAI API error: {response.status_code}")
+        
+        result = response.json()
+        logger.info(f"OpenAI response content: {result.get('choices', [{}])[0].get('message', {}).get('content', '')[:200]}")
+        
+        # Extract content
+        content = result.get('choices', [{}])[0].get('message', {}).get('content', '')
+        
+        # Clean up markdown code blocks if present
+        content = content.replace('```json', '').replace('```', '').strip()
+        
+        # Parse JSON
+        try:
+            assessment = json.loads(content)
+            
+            # Ensure all fields exist and are correct type
+            assessment = {
+                'no_helmet': bool(assessment.get('no_helmet', False)),
+                'triple_riding': bool(assessment.get('triple_riding', False)),
+                'red_light': bool(assessment.get('red_light', False)),
+                'recommendation': str(assessment.get('recommendation', 'No violation'))
+            }
+            
+            logger.info(f"Parsed assessment: {assessment}")
+            return assessment
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON parse error: {e}, content: {content}")
+            raise Exception(f"Invalid JSON response: {content}")
 
 
 @app.post("/v1/assessments")
 async def assess_violation(request: Request):
     """
-    MVP Assessment endpoint - calls real Gemini/OpenAI APIs.
+    Single-call assessment endpoint.
+    Returns violations directly as booleans.
     """
     started = time.monotonic()
-    deadline = started + 60  # 60 second timeout
+    correlation_id = str(uuid4())
     
     try:
         # Verify authorization
         auth_header = request.headers.get('Authorization', '')
-        if not auth_header.startswith('Bearer '):
-            return JSONResponse(status_code=401, content={
-                "error": {"code": "UNAUTHORIZED", "message": "Missing Bearer token"}
-            })
+        token = auth_header.split(' ', 1)[1] if 'Bearer ' in auth_header else ''
         
-        token = auth_header.split(' ', 1)[1]
         if token != AI_GATEWAY_TOKEN:
             return JSONResponse(status_code=401, content={
-                "error": {"code": "UNAUTHORIZED", "message": "Invalid token"}
+                "error": "Unauthorized"
             })
         
         # Parse request
         body = await request.json()
-        correlation_id = body.get('correlation_id', 'unknown')
-        attempt_id = body.get('attempt_id', 'unknown')
-        attempt_number = body.get('attempt_number', 1)
-        evidence_revision = body.get('evidence_revision', 1)
-        
-        selection = body.get('selection', {})
-        provider = selection.get('provider', AI_PROVIDER).lower()
-        request_profile_version = selection.get('request_profile_version')
-        media_profile_version = selection.get('media_profile_version')
-        
-        prompt = body.get('prompt', {})
-        prompt_text = prompt.get('text', '')
-        prompt_version = prompt.get('version')
-        policy_version = prompt.get('policy_version')
-        legal_reference_version = prompt.get('legal_reference_version')
+        correlation_id = body.get('correlation_id', correlation_id)
         
         # Extract media
-        media_items = []
         evidence_list = body.get('evidence', [])
-        for item in evidence_list:
-            # Media is sent as base64-encoded data_base64 field from the app
-            if 'data_base64' in item:
-                media_items.append({
-                    'id': item.get('media_id'),
-                    'mime_type': item.get('mime_type'),
-                    'bytes': base64.b64decode(item['data_base64'])
-                })
+        if not evidence_list:
+            return JSONResponse(status_code=400, content={
+                "error": "No evidence provided",
+                "correlation_id": correlation_id
+            })
         
-        # Extract violation category from prompt text
-        # Format: "Assess traffic violation: <category> by vehicle..."
-        category = 'unknown'
+        # Get first image
+        image_base64 = evidence_list[0].get('data_base64', '')
+        if not image_base64:
+            return JSONResponse(status_code=400, content={
+                "error": "No image data",
+                "correlation_id": correlation_id
+            })
+        
+        # Extract violation type from prompt
+        prompt = body.get('prompt', {})
+        prompt_text = prompt.get('text', '')
+        
+        violation_type = 'traffic'
         if 'violation:' in prompt_text.lower():
             parts = prompt_text.lower().split('violation:')
             if len(parts) > 1:
-                category_text = parts[1].strip().split(' by ')[0].strip()
-                if category_text:
-                    category = category_text
+                violation_type = parts[1].strip().split(' by ')[0].strip()
         
-        logger.info(f"Assessment request: {correlation_id} from {provider}, media_count={len(media_items)}, category={category}")
+        logger.info(f"Assessment: {correlation_id}, violation={violation_type}")
         
-        # Choose provider
-        if provider not in PROVIDER_CONFIGS:
-            provider = 'openai'
-        
-        if not PROVIDER_CONFIGS[provider]['key']:
-            # No API key configured
-            logger.error(f"No API key for {provider}")
-            response = build_error_response(
-                started, correlation_id, attempt_id, attempt_number, evidence_revision,
-                selection, prompt, provider,
-                "PROVIDER_CONFIGURATION", "No API key configured", 502, False
-            )
-            return JSONResponse(response, status_code=502)
-        
-        # Call the provider
-        if provider == 'openai':
-            assessment, elapsed_ms = await assess_with_openai(
-                None, media_items, prompt_text, PROVIDER_CONFIGS[provider]['key'], deadline
-            )
-        else:
-            assessment, elapsed_ms = await assess_with_gemini(
-                None, media_items, prompt_text, PROVIDER_CONFIGS[provider]['key'], deadline
-            )
-        
-        # If assessment received, validate and return it
-        if assessment:
-            try:
-                # Transform to strict schema format
-                strict_assessment = transform_to_strict_schema(assessment, media_items)
-                logger.info(f"Transformed assessment for validation: {strict_assessment}")
-                
-                # Validate assessment against schema
-                valid = validate(strict_assessment, media_items, category)
-                if valid:
-                    logger.info(f"Assessment valid, returning 200 OK: {correlation_id}")
-                    response = {
-                        "correlation_id": correlation_id,
-                        "attempt_id": attempt_id,
-                        "attempt_number": attempt_number,
-                        "evidence_revision": evidence_revision,
-                        "selection": selection,
-                        "prompt": prompt,
-                        "provider": provider,
-                        "assessment": valid,
-                        "elapsed_ms": elapsed_ms,
-                        "timestamp": time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
-                    }
-                    return JSONResponse(response, status_code=200)
-            except Exception as e:
-                logger.error(f"Assessment validation failed: {e}")
-                # Fall through to error response
-        
-        # If no valid assessment, return error response
-        response = build_error_response(
-            started, correlation_id, attempt_id, attempt_number, evidence_revision,
-            selection, prompt, provider,
-            "MODEL_OUTPUT_UNAVAILABLE", "AI assessment processing unavailable; officer review required", 502, False
-        )
-        logger.info(f"Gateway returning error response for: {correlation_id}")
-        return JSONResponse(response, status_code=502)
-        
-    except json.JSONDecodeError as e:
-        logger.error(f"Invalid JSON: {e}")
-        return JSONResponse(status_code=400, content={
-            "error": {"code": "INVALID_REQUEST", "message": "Invalid JSON"}
-        })
+        # Call OpenAI
+        try:
+            assessment = await call_openai_simple(image_base64, violation_type)
+            
+            elapsed_ms = int((time.monotonic() - started) * 1000)
+            logger.info(f"Assessment completed in {elapsed_ms}ms")
+            
+            return JSONResponse(status_code=200, content={
+                "correlation_id": correlation_id,
+                "assessment": assessment,
+                "timings_ms": elapsed_ms
+            })
+            
+        except Exception as e:
+            logger.error(f"Assessment failed: {e}")
+            elapsed_ms = int((time.monotonic() - started) * 1000)
+            
+            return JSONResponse(status_code=502, content={
+                "error": str(e),
+                "correlation_id": correlation_id,
+                "timings_ms": elapsed_ms
+            })
+    
     except Exception as e:
-        logger.error(f"Error processing assessment: {e}", exc_info=True)
+        logger.error(f"Request error: {e}")
+        elapsed_ms = int((time.monotonic() - started) * 1000)
+        
         return JSONResponse(status_code=500, content={
-            "error": {"code": "PROCESSING_ERROR", "message": str(e)}
+            "error": str(e),
+            "correlation_id": correlation_id,
+            "timings_ms": elapsed_ms
         })
 
 
-def build_error_response(started, correlation_id, attempt_id, attempt_number, evidence_revision,
-                        selection, prompt, provider, error_code, error_msg, status, retryable):
-    """Build a properly formatted error response envelope."""
-    from datetime import datetime
-    now_iso = datetime.utcnow().isoformat() + 'Z'
-    
-    return {
-        "contract_version": "agw-v1",
-        "correlation_id": correlation_id,
-        "attempt_id": attempt_id,
-        "attempt_number": attempt_number,
-        "evidence_revision": evidence_revision,
-        "gateway_request_id": uuid4().hex,
-        "provider": provider,
-        "model": PROVIDER_CONFIGS.get(provider, {}).get('model'),
-        "model_version": None,
-        "prompt_version": prompt.get('version'),
-        "policy_version": prompt.get('policy_version'),
-        "legal_reference_version": prompt.get('legal_reference_version'),
-        "request_profile_version": selection.get('request_profile_version'),
-        "media_profile_version": selection.get('media_profile_version'),
-        "received_at": now_iso,
-        "completed_at": now_iso,
-        "timings_ms": {
-            "receive": 5,
-            "validation": 5,
-            "preparation": 5,
-            "provider": max(0, int((time.monotonic() - started) * 1000) - 20),
-            "normalization": 5,
-            "total": max(1, int((time.monotonic() - started) * 1000))
-        },
-        "media_coverage": [],
-        "usage": {
-            "input_tokens": None,
-            "output_tokens": None,
-            "cached_input_tokens": None,
-            "thinking_tokens": None,
-            "total_tokens": None,
-            "source": "unavailable"
-        },
-        "billing_state": "not-invoked",
-        "provider_request_id": None,
-        "assessment": None,
-        "error": {
-            "code": error_code,
-            "message": error_msg,
-            "retryable": retryable,
-            "stage": "provider",
-            "provider_status": None,
-            "retry_after_ms": None
-        }
-    }
+@app.get("/health")
+async def health():
+    """Health check endpoint."""
+    return JSONResponse(status_code=200, content={"status": "ok"})
 
 
-
-@app.post("/v1/breakdown")
-async def breakdown_violations(request: Request):
-    """Confirm specific violations based on assessment from Call 1.
-    
-    Takes the main assessment and asks AI to confirm presence of:
-    - no_helmet: Riders not wearing helmets
-    - triple_riding: More than 2 people on vehicle  
-    - red_light: Crossing at red traffic signal
-    
-    Returns boolean flags + confidence scores for each.
-    """
-    started = time.monotonic()
-    correlation_id = str(uuid4()).replace('-', '')[:16]
-    
-    try:
-        body = await request.json()
-        assessment = body.get('assessment', {})
-        evidence_list = body.get('evidence', [])
-        
-        if not assessment:
-            return JSONResponse({"error": "Missing assessment from Call 1"}, status_code=400)
-        
-        logger.info(f"Breakdown {correlation_id}: Confirming violations from assessment")
-        
-        # Build simple breakdown prompt
-        explanation = assessment.get('explanation', '')
-        observations = assessment.get('observations', [])
-        obs_text = '\n'.join([o.get('text', '') if isinstance(o, dict) else str(o) for o in observations])
-        
-        breakdown_prompt = f"""You are analyzing a traffic violation assessment. Based on this assessment, confirm which specific violations are present.
-
-Assessment explanation: {explanation}
-
-Observations: {obs_text}
-
-For each violation type, respond with ONLY the boolean value (true/false):
-
-1. no_helmet - Are riders/drivers NOT wearing helmets? (yes/no)
-2. triple_riding - Are there MORE than 2 people on the vehicle? (yes/no)  
-3. red_light - Is the vehicle crossing at a RED traffic signal? (yes/no)
-
-Respond ONLY as JSON, no other text:
-{{
-  "violations": {{
-    "no_helmet": true/false,
-    "triple_riding": true/false,
-    "red_light": true/false
-  }}
-}}"""
-        
-        # Call AI provider to confirm violations
-        if AI_PROVIDER == 'openai':
-            breakdown = await call_openai_breakdown(breakdown_prompt)
-        elif AI_PROVIDER == 'gemini':
-            breakdown = await call_gemini_breakdown(breakdown_prompt)
-        else:
-            breakdown = {"violations": {}}
-        
-        logger.info(f"Breakdown {correlation_id} complete: {breakdown}")
-        
-        return JSONResponse({
-            "correlation_id": correlation_id,
-            "breakdown": breakdown,
-            "provider": AI_PROVIDER,
-            "model": PROVIDER_CONFIGS.get(AI_PROVIDER, {}).get('model'),
-            "processing_ms": int((time.monotonic() - started) * 1000)
-        }, status_code=200)
-        
-    except json.JSONDecodeError as e:
-        logger.error(f"Invalid JSON in breakdown request: {e}")
-        return JSONResponse({"error": "Invalid JSON"}, status_code=400)
-    except Exception as e:
-        logger.error(f"Breakdown failed: {e}", exc_info=True)
-        return JSONResponse({
-            "correlation_id": correlation_id,
-            "error": str(e),
-            "provider": AI_PROVIDER
-        }, status_code=502)
-
-
-async def call_openai_breakdown(prompt: str) -> dict:
-    """Call OpenAI to confirm violations (simpler than assessment)."""
-    try:
-        async with httpx.AsyncClient(timeout=30) as client:
-            response = await client.post(
-                "https://api.openai.com/v1/chat/completions",
-                headers={"Authorization": f"Bearer {OPENAI_API_KEY}"},
-                json={
-                    "model": "gpt-4o-mini",
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.2,
-                    "max_tokens": 500
-                }
-            )
-        
-        if response.status_code != 200:
-            logger.error(f"OpenAI breakdown error {response.status_code}: {response.text[:200]}")
-            return {"violations": {}}
-        
-        result = response.json()
-        if result.get('choices'):
-            text = result['choices'][0].get('message', {}).get('content', '{}')
-            logger.info(f"OpenAI breakdown response: {text[:300]}")
-            
-            # Extract JSON from response
-            try:
-                # Try to parse directly
-                return json.loads(text)
-            except:
-                # Try to find JSON in response
-                start = text.find('{')
-                end = text.rfind('}') + 1
-                if start >= 0 and end > start:
-                    return json.loads(text[start:end])
-                return {"violations": {}}
-        
-        return {"violations": {}}
-        
-    except Exception as e:
-        logger.error(f"OpenAI breakdown call failed: {e}")
-        return {"violations": {}}
-
-
-async def call_gemini_breakdown(prompt: str) -> dict:
-    """Call Gemini to confirm violations."""
-    try:
-        async with httpx.AsyncClient(timeout=30) as client:
-            response = await client.post(
-                f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}",
-                json={
-                    "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-                    "generationConfig": {
-                        "temperature": 0.2,
-                        "maxOutputTokens": 500
-                    }
-                }
-            )
-        
-        if response.status_code != 200:
-            logger.error(f"Gemini breakdown error {response.status_code}")
-            return {"violations": {}}
-        
-        result = response.json()
-        candidates = result.get('candidates', [])
-        if candidates:
-            text = candidates[0].get('content', {}).get('parts', [{}])[0].get('text', '{}')
-            logger.info(f"Gemini breakdown response: {text[:300]}")
-            
-            try:
-                return json.loads(text)
-            except:
-                start = text.find('{')
-                end = text.rfind('}') + 1
-                if start >= 0 and end > start:
-                    return json.loads(text[start:end])
-                return {"violations": {}}
-        
-        return {"violations": {}}
-        
-    except Exception as e:
-        logger.error(f"Gemini breakdown call failed: {e}")
-        return {"violations": {}}
-
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     import uvicorn
-    from datetime import datetime
-    logger.info(f"✓ AI Gateway Assessment Service (real Gemini/OpenAI) loaded successfully")
-    uvicorn.run(app, host="127.0.0.1", port=9004, log_level="info")
+    uvicorn.run(app, host='127.0.0.1', port=9004)
